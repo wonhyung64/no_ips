@@ -76,7 +76,6 @@ print(f"# user: {num_users}, # item: {num_items}")
 
 total_batch = num_sample // batch_size
 
-num_epochs = 1
 #%% TRAIN
 model = MF(num_users, num_items, embedding_k)
 model = model.to(device)
