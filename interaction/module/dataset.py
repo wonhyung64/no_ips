@@ -43,3 +43,10 @@ def binarize(y, thres=3):
     y[y>=thres] = 1
 
     return y
+
+
+def generate_total_sample(num_user, num_item):
+    sample = []
+    for i in range(num_user):
+        sample.extend([[i,j] for j in range(num_item)])
+    return np.array(sample)
