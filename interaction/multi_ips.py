@@ -12,7 +12,7 @@ import torch.nn.functional as F
 from datetime import datetime
 from sklearn.metrics import roc_auc_score
 
-from module.model import ESMM
+from module.model import MultiIps
 from module.metric import ndcg_func, recall_func, ap_func
 from module.utils import set_seed, set_device
 from module.dataset import binarize, generate_total_sample, load_data
@@ -28,7 +28,7 @@ for seed in range(10):
     # SETTINGS
     parser = argparse.ArgumentParser()
     parser.add_argument("--embedding-k", type=int, default=18)
-    parser.add_argument("--lr", type=float, default=1e-8)
+    parser.add_argument("--lr", type=float, default=5e-4)
     parser.add_argument("--weight-decay", type=float, default=0.)
     parser.add_argument("--batch-size", type=int, default=2048)
     parser.add_argument("--num-epochs", type=int, default=1000)
@@ -36,7 +36,7 @@ for seed in range(10):
     parser.add_argument("--evaluate-interval", type=int, default=50)
     parser.add_argument("--top-k-list", type=list, default=[1,3,5,7,10])
     parser.add_argument("--data-dir", type=str, default="./data")
-    parser.add_argument("--dataset-name", type=str, default="coat")
+    parser.add_argument("--dataset-name", type=str, default="yahoo_r3")
     parser.add_argument("--G", type=int, default=1)
     try:
         args = parser.parse_args()
@@ -64,7 +64,7 @@ for seed in range(10):
     configs = vars(args)
     configs["device"] = device
     wandb_var = wandb.init(project="no_ips", config=configs)
-    wandb.run.name = f"esmm_{expt_num}"
+    wandb.run.name = f"multi_ips_{expt_num}"
 
 
     # DATA LOADER
@@ -85,7 +85,7 @@ for seed in range(10):
 
 
     # TRAIN
-    model = ESMM(num_users, num_items, embedding_k)
+    model = MultiIps(num_users, num_items, embedding_k)
     model = model.to(device)
     optimizer = torch.optim.Adam(model.parameters(), lr=lr, weight_decay=weight_decay)
     loss_fcn = torch.nn.BCELoss()
@@ -103,7 +103,7 @@ for seed in range(10):
         np.random.shuffle(ul_idxs)
 
         epoch_ctr_loss = 0.
-        epoch_ctcvr_loss = 0.
+        epoch_cvr_loss = 0.
         epoch_total_loss = 0.
 
         for idx in range(total_batch):
@@ -114,13 +114,13 @@ for seed in range(10):
             sub_obs = torch.Tensor(obs[x_all_idx]).unsqueeze(-1).to(device)
             sub_entire_y = torch.Tensor(y_entire[x_all_idx]).unsqueeze(-1).to(device)
 
-            _, pred_ctr, pred_ctcvr = model(x_sampled)
+            pred_cvr, pred_ctr = model(x_sampled)
             ctr_loss = loss_fcn(nn.Sigmoid()(pred_ctr), sub_obs)
-            ctcvr_loss = loss_fcn(pred_ctcvr, sub_entire_y)
-            total_loss = ctr_loss + ctcvr_loss
+            cvr_loss = F.binary_cross_entropy(nn.Sigmoid()(pred_cvr), sub_entire_y, 1/(nn.Sigmoid()(pred_ctr).detach()))
+            total_loss = ctr_loss + cvr_loss
 
             epoch_ctr_loss += ctr_loss
-            epoch_ctcvr_loss += ctcvr_loss
+            epoch_cvr_loss += cvr_loss
             epoch_total_loss += total_loss
 
             optimizer.zero_grad()
@@ -131,7 +131,7 @@ for seed in range(10):
 
         loss_dict: dict = {
             'epoch_ctr_loss': float(epoch_ctr_loss.item()),
-            'epoch_ctcvr_loss': float(epoch_ctcvr_loss.item()),
+            'epoch_cvr_loss': float(epoch_cvr_loss.item()),
             'epoch_total_loss': float(epoch_total_loss.item()),
         }
 
@@ -140,7 +140,7 @@ for seed in range(10):
         if epoch % evaluate_interval == 0:
             model.eval()
             x_test_tensor = torch.LongTensor(x_test-1).to(device)
-            pred_, _, __ = model(x_test_tensor)
+            pred_, _  = model(x_test_tensor)
             pred = pred_.flatten().cpu().detach().numpy()
 
             ndcg_res = ndcg_func(pred, x_test, y_test, top_k_list)
