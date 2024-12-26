@@ -15,8 +15,10 @@ bin-release/
 __pycache__
 data
 wandb
-.sh
+multi_run.sh
+run_src.sh
 weights
+logs
 # Project files, i.e. `.project`, `.actionScriptProperties` and `.flexProperties`
 # should NOT be excluded as they contain compiler settings and other important
 # information for Eclipse / Flash Builder.
