@@ -27,9 +27,9 @@ except:
 for seed in range(10):
     # SETTINGS
     parser = argparse.ArgumentParser()
-    parser.add_argument("--embedding-k", type=int, default=18)
-    parser.add_argument("--lr", type=float, default=1e-8)
-    parser.add_argument("--weight-decay", type=float, default=0.)
+    parser.add_argument("--embedding-k", type=int, default=5)
+    parser.add_argument("--lr", type=float, default=1e-4)
+    parser.add_argument("--weight-decay", type=float, default=1e-3)
     parser.add_argument("--batch-size", type=int, default=2048)
     parser.add_argument("--num-epochs", type=int, default=1000)
     parser.add_argument("--random-seed", type=int, default=seed)
@@ -68,7 +68,7 @@ for seed in range(10):
     configs = vars(args)
     configs["device"] = device
     wandb_var = wandb.init(project="no_ips", config=configs)
-    wandb.run.name = f"esmm_{expt_num}"
+    wandb.run.name = f"escm2_ips_{expt_num}"
 
 
     # DATA LOADER
