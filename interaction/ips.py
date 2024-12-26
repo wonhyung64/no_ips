@@ -5,8 +5,9 @@ import torch
 import argparse
 import subprocess
 import numpy as np
-import torch.nn.functional as F
 from datetime import datetime
+import torch.nn.functional as F
+from sklearn.metrics import roc_auc_score
 
 from module.model import MF
 from module.metric import ndcg_func, recall_func, ap_func
@@ -20,140 +21,146 @@ except:
     import wandb
 
 
-#%% SETTINGS
-parser = argparse.ArgumentParser()
-parser.add_argument("--embedding-k", type=int, default=4)
-parser.add_argument("--lr", type=float, default=1e-2)
-parser.add_argument("--weight-decay", type=float, default=1e-4)
-parser.add_argument("--batch-size", type=int, default=2048)
-parser.add_argument("--num-epochs", type=int, default=1000)
-parser.add_argument("--random-seed", type=int, default=0)
-parser.add_argument("--evaluate-interval", type=int, default=50)
-parser.add_argument("--top-k-list", type=list, default=[1,3,5,7,10])
-parser.add_argument("--data-dir", type=str, default="./data")
-parser.add_argument("--dataset-name", type=str, default="yahoo_r3")
-try:
-    args = parser.parse_args()
-except:
-    args = parser.parse_args([])
+# SETTINGS
+for seed in range(10):
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--embedding-k", type=int, default=4)
+    parser.add_argument("--lr", type=float, default=1e-2)
+    parser.add_argument("--weight-decay", type=float, default=1e-4)
+    parser.add_argument("--batch-size", type=int, default=2048)
+    parser.add_argument("--num-epochs", type=int, default=1000)
+    # parser.add_argument("--random-seed", type=int, default=0)
+    parser.add_argument("--random-seed", type=int, default=seed)
+    parser.add_argument("--evaluate-interval", type=int, default=50)
+    parser.add_argument("--top-k-list", type=list, default=[1,3,5,7,10])
+    parser.add_argument("--data-dir", type=str, default="./data")
+    parser.add_argument("--dataset-name", type=str, default="yahoo_r3")
+    try:
+        args = parser.parse_args()
+    except:
+        args = parser.parse_args([])
 
-embedding_k = args.embedding_k
-lr = args.lr
-weight_decay = args.weight_decay
-batch_size = args.batch_size
-num_epochs = args.num_epochs
-random_seed = args.random_seed
-evaluate_interval = args.evaluate_interval
-top_k_list = args.top_k_list
-data_dir = args.data_dir
-dataset_name = args.dataset_name
+    embedding_k = args.embedding_k
+    lr = args.lr
+    weight_decay = args.weight_decay
+    batch_size = args.batch_size
+    num_epochs = args.num_epochs
+    random_seed = args.random_seed
+    evaluate_interval = args.evaluate_interval
+    top_k_list = args.top_k_list
+    data_dir = args.data_dir
+    dataset_name = args.dataset_name
 
-expt_num = f'{datetime.now().strftime("%y%m%d_%H%M%S_%f")}'
-set_seed(random_seed)
-device = set_device()
-
-
-#%% WANDB
-configs = vars(args)
-configs["device"] = device
-wandb_var = wandb.init(project="no_ips", config=configs)
-wandb.run.name = f"ips_{expt_num}"
+    expt_num = f'{datetime.now().strftime("%y%m%d_%H%M%S_%f")}'
+    set_seed(random_seed)
+    device = set_device()
 
 
-#%% DATA LOADER
-x_train, x_test = load_data(data_dir, dataset_name)
+    # WANDB
+    configs = vars(args)
+    configs["device"] = device
+    wandb_var = wandb.init(project="no_ips", config=configs)
+    wandb.run.name = f"ips_{expt_num}"
 
-x_train, y_train = x_train[:,:-1], x_train[:,-1]
-x_test, y_test = x_test[:, :-1], x_test[:,-1]
 
-y_train = binarize(y_train)
-y_test = binarize(y_test)
+    # DATA LOADER
+    x_train, x_test = load_data(data_dir, dataset_name)
 
-num_users = x_train[:,0].max()
-num_items = x_train[:,1].max()
-num_sample = len(x_train)
-print(f"# user: {num_users}, # item: {num_items}")
+    x_train, y_train = x_train[:,:-1], x_train[:,-1]
+    x_test, y_test = x_test[:, :-1], x_test[:,-1]
 
-total_batch = num_sample // batch_size
+    y_train = binarize(y_train)
+    y_test = binarize(y_test)
 
-#%% TRAIN
-model = MF(num_users, num_items, embedding_k)
-model = model.to(device)
-optimizer = torch.optim.Adam(model.parameters(), lr=lr, weight_decay=weight_decay)
-loss_fcn = lambda x, y, z: F.binary_cross_entropy(x, y, z)
+    num_users = x_train[:,0].max()
+    num_items = x_train[:,1].max()
+    num_sample = len(x_train)
+    print(f"# user: {num_users}, # item: {num_items}")
 
-ips_idxs = np.arange(len(y_test))
-np.random.shuffle(ips_idxs)
-y_ips = y_test[ips_idxs[:int(0.05 * len(ips_idxs))]]
+    total_batch = num_sample // batch_size
 
-one_over_zl = estimate_ips_bayes(x_train, y_train, y_ips)
+    # TRAIN
+    model = MF(num_users, num_items, embedding_k)
+    model = model.to(device)
+    optimizer = torch.optim.Adam(model.parameters(), lr=lr, weight_decay=weight_decay)
+    loss_fcn = lambda x, y, z: F.binary_cross_entropy(x, y, z)
 
-for epoch in range(1, num_epochs+1):
-    all_idx = np.arange(num_sample)
-    np.random.shuffle(all_idx)
-    model.train()
+    ips_idxs = np.arange(len(y_test))
+    np.random.shuffle(ips_idxs)
+    y_ips = y_test[ips_idxs[:int(0.05 * len(ips_idxs))]]
 
-    epoch_total_loss = 0.
-    epoch_ips_loss = 0.
+    one_over_zl = estimate_ips_bayes(x_train, y_train, y_ips)
 
-    for idx in range(total_batch):
+    for epoch in range(1, num_epochs+1):
+        all_idx = np.arange(num_sample)
+        np.random.shuffle(all_idx)
+        model.train()
 
-        selected_idx = all_idx[batch_size*idx:(idx+1)*batch_size]
-        sub_x = x_train[selected_idx]
-        sub_x = torch.LongTensor(sub_x - 1).to(device)
-        sub_y = y_train[selected_idx]
-        sub_y = torch.Tensor(sub_y).unsqueeze(-1).to(device)
+        epoch_total_loss = 0.
+        epoch_ips_loss = 0.
 
-        pred, user_embed, item_embed = model(sub_x)
-        inv_prop = one_over_zl[selected_idx].unsqueeze(-1).to(device)
+        for idx in range(total_batch):
 
-        ips_loss = loss_fcn(torch.nn.Sigmoid()(pred), sub_y, inv_prop)
+            selected_idx = all_idx[batch_size*idx:(idx+1)*batch_size]
+            sub_x = x_train[selected_idx]
+            sub_x = torch.LongTensor(sub_x - 1).to(device)
+            sub_y = y_train[selected_idx]
+            sub_y = torch.Tensor(sub_y).unsqueeze(-1).to(device)
 
-        epoch_ips_loss += ips_loss
+            pred, user_embed, item_embed = model(sub_x)
+            inv_prop = one_over_zl[selected_idx].unsqueeze(-1).to(device)
 
-        total_loss = ips_loss
-        epoch_total_loss += total_loss
+            ips_loss = loss_fcn(torch.nn.Sigmoid()(pred), sub_y, inv_prop)
 
-        optimizer.zero_grad()
-        total_loss.backward()
-        optimizer.step()
+            epoch_ips_loss += ips_loss
 
-    print(f"[Epoch {epoch:>4d} Train Loss] rec: {epoch_total_loss.item():.4f}")
+            total_loss = ips_loss
+            epoch_total_loss += total_loss
 
-    loss_dict: dict = {
-        'epoch_ips_loss': float(epoch_ips_loss.item()),
-        'epoch_total_loss': float(epoch_total_loss.item()),
-    }
+            optimizer.zero_grad()
+            total_loss.backward()
+            optimizer.step()
 
-    wandb_var.log(loss_dict)
+        print(f"[Epoch {epoch:>4d} Train Loss] rec: {epoch_total_loss.item():.4f}")
 
-    if epoch % evaluate_interval == 0:
-        model.eval()
-        x_test_tensor = torch.LongTensor(x_test-1).to(device)
-        pred_, _, __ = model(x_test_tensor)
-        pred = pred_.flatten().cpu().detach().numpy()
+        loss_dict: dict = {
+            'epoch_ips_loss': float(epoch_ips_loss.item()),
+            'epoch_total_loss': float(epoch_total_loss.item()),
+        }
 
-        ndcg_res = ndcg_func(pred, x_test, y_test, top_k_list)
-        ndcg_dict: dict = {}
-        for top_k in top_k_list:
-            ndcg_dict[f"ndcg_{top_k}"] = np.mean(ndcg_res[f"ndcg_{top_k}"])
+        wandb_var.log(loss_dict)
 
-        recall_res = recall_func(pred, x_test, y_test, top_k_list)
-        recall_dict: dict = {}
-        for top_k in top_k_list:
-            recall_dict[f"recall_{top_k}"] = np.mean(recall_res[f"recall_{top_k}"])
+        if epoch % evaluate_interval == 0:
+            model.eval()
+            x_test_tensor = torch.LongTensor(x_test-1).to(device)
+            pred_, _, __ = model(x_test_tensor)
+            pred = pred_.flatten().cpu().detach().numpy()
 
-        ap_res = ap_func(pred, x_test, y_test, top_k_list)
-        ap_dict: dict = {}
-        for top_k in top_k_list:
-            ap_dict[f"ap_{top_k}"] = np.mean(ap_res[f"ap_{top_k}"])
+            ndcg_res = ndcg_func(pred, x_test, y_test, top_k_list)
+            ndcg_dict: dict = {}
+            for top_k in top_k_list:
+                ndcg_dict[f"ndcg_{top_k}"] = np.mean(ndcg_res[f"ndcg_{top_k}"])
 
-        wandb_var.log(ndcg_dict)
-        wandb_var.log(recall_dict)
-        wandb_var.log(ap_dict)
+            recall_res = recall_func(pred, x_test, y_test, top_k_list)
+            recall_dict: dict = {}
+            for top_k in top_k_list:
+                recall_dict[f"recall_{top_k}"] = np.mean(recall_res[f"recall_{top_k}"])
 
-print(f"NDCG: {ndcg_dict}")
-print(f"Recall: {recall_dict}")
-print(f"AP: {ap_dict}")
+            ap_res = ap_func(pred, x_test, y_test, top_k_list)
+            ap_dict: dict = {}
+            for top_k in top_k_list:
+                ap_dict[f"ap_{top_k}"] = np.mean(ap_res[f"ap_{top_k}"])
 
-wandb.finish()
+            auc = roc_auc_score(y_test, pred)
+
+            wandb_var.log(ndcg_dict)
+            wandb_var.log(recall_dict)
+            wandb_var.log(ap_dict)
+            wandb_var.log({"auc": auc})
+
+    print(f"NDCG: {ndcg_dict}")
+    print(f"Recall: {recall_dict}")
+    print(f"AP: {ap_dict}")
+    print(f"AUC: {auc}")
+
+    wandb.finish()
