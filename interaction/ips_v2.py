@@ -12,7 +12,7 @@ import torch.nn.functional as F
 from datetime import datetime
 from sklearn.metrics import roc_auc_score
 
-from module.model import MF_IPS_V2
+from module.model import IPS_V2
 from module.metric import ndcg_func, recall_func, ap_func
 from module.utils import set_seed, set_device
 from module.dataset import binarize, generate_total_sample, load_data
