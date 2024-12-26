@@ -69,14 +69,26 @@ class ESMM(nn.Module):
         self.user_embedding = nn.Embedding(self.num_users, self.embedding_k)
         self.item_embedding = nn.Embedding(self.num_items, self.embedding_k)
         self.ctr = nn.Sequential(
-            nn.Linear(in_features=self.embedding_k*2, out_features=self.embedding_k),
+            nn.Linear(in_features=self.embedding_k*2, out_features=360),
             nn.ReLU(),
-            nn.Linear(in_features=self.embedding_k, out_features=1),
+            nn.Linear(in_features=360, out_features=200),
+            nn.ReLU(),
+            nn.Linear(in_features=200, out_features=80),
+            nn.ReLU(),
+            nn.Linear(in_features=80, out_features=2),
+            nn.ReLU(),
+            nn.Linear(in_features=2, out_features=1),
         )
         self.cvr = nn.Sequential(
-            nn.Linear(in_features=self.embedding_k*2, out_features=self.embedding_k),
+            nn.Linear(in_features=self.embedding_k*2, out_features=360),
             nn.ReLU(),
-            nn.Linear(in_features=self.embedding_k, out_features=1),
+            nn.Linear(in_features=360, out_features=200),
+            nn.ReLU(),
+            nn.Linear(in_features=200, out_features=80),
+            nn.ReLU(),
+            nn.Linear(in_features=80, out_features=2),
+            nn.ReLU(),
+            nn.Linear(in_features=2, out_features=1),
         )
 
     def forward(self, x):
