@@ -24,17 +24,26 @@ except:
 # SETTINGS
 for seed in range(10):
     parser = argparse.ArgumentParser()
-    parser.add_argument("--embedding-k", type=int, default=4)
+    """coat"""
+    parser.add_argument("--embedding-k", type=int, default=128)
     parser.add_argument("--lr", type=float, default=1e-2)
-    parser.add_argument("--weight-decay", type=float, default=1e-4)
-    parser.add_argument("--batch-size", type=int, default=2048)
+    parser.add_argument("--weight-decay", type=float, default=1e-6)
+    parser.add_argument("--batch-size", type=int, default=4096)
+    parser.add_argument("--dataset-name", type=str, default="coat")
+
+    """yahoo"""
+    # parser.add_argument("--embedding-k", type=int, default=128)
+    # parser.add_argument("--lr", type=float, default=1e-4)
+    # parser.add_argument("--weight-decay", type=float, default=1e-5)
+    # parser.add_argument("--batch-size", type=int, default=8192)
+    # parser.add_argument("--dataset-name", type=str, default="yahoo_r3")
+
     parser.add_argument("--num-epochs", type=int, default=1000)
-    # parser.add_argument("--random-seed", type=int, default=0)
     parser.add_argument("--random-seed", type=int, default=seed)
     parser.add_argument("--evaluate-interval", type=int, default=50)
     parser.add_argument("--top-k-list", type=list, default=[1,3,5,7,10])
     parser.add_argument("--data-dir", type=str, default="./data")
-    parser.add_argument("--dataset-name", type=str, default="yahoo_r3")
+
     try:
         args = parser.parse_args()
     except:
