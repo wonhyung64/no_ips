@@ -85,7 +85,7 @@ device = set_device()
 configs = vars(args)
 configs["device"] = device
 wandb_var = wandb.init(project="no_ips", config=configs)
-wandb.run.name = f"akb_ips_v2_{expt_num}"
+wandb.run.name = f"akb_ips_{expt_num}"
 
 # DATA LOADER
 x_train, x_test = load_data(data_dir, dataset_name)
