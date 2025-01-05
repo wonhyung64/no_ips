@@ -26,14 +26,14 @@ except:
 parser = argparse.ArgumentParser()
 
 """coat"""
-parser.add_argument("--batch-size", type=int, default=128)
-parser.add_argument("--G", type=int, default=5)
-parser.add_argument("--dataset-name", type=str, default="coat")
+# parser.add_argument("--batch-size", type=int, default=128)
+# parser.add_argument("--G", type=int, default=5)
+# parser.add_argument("--dataset-name", type=str, default="coat")
 
 """yahoo_r3"""
-# parser.add_argument("--batch-size", type=int, default=2048)
-# parser.add_argument("--G", type=int, default=4)
-# parser.add_argument("--dataset-name", type=str, default="yahoo_r3")
+parser.add_argument("--batch-size", type=int, default=2048)
+parser.add_argument("--G", type=int, default=4)
+parser.add_argument("--dataset-name", type=str, default="yahoo_r3")
 
 parser.add_argument("--embedding-k", type=int, default=4)
 parser.add_argument("--lr1", type=float, default=0.05)
@@ -116,8 +116,16 @@ optimizer_epo = torch.optim.Adam(
 
 x_all = generate_total_sample(num_users, num_items)
 
-model.W.load_state_dict(torch.load(f'./assets/akb_ips/{dataset_name}_user.pth', map_location=device))
-model.H.load_state_dict(torch.load(f'./assets/akb_ips/{dataset_name}_item.pth', map_location=device))
+#%%
+user_weight = torch.load(f'./assets/akb_ips/{dataset_name}_user.pth', map_location=device)
+# user_weight = torch.load(f'/home1/wonhyung64/Github/no_ips/interaction/assets/akb_ips/{dataset_name}_user.pth', map_location=device), strict=False)
+user_weight["weight"] = user_weight["weight"][:num_users,:]
+model.W.load_state_dict(user_weight)
+
+item_weight = torch.load(f'./assets/akb_ips/{dataset_name}_item.pth', map_location=device)
+# item_weight = torch.load(f'/home1/wonhyung64/Github/no_ips/interaction/assets/akb_ips/{dataset_name}_item.pth', map_location=device), strict=False)
+item_weight["weight"] = item_weight["weight"][:num_items,:]
+model.H.load_state_dict(item_weight)
 
 ips_idxs = np.arange(len(y_test))
 np.random.shuffle(ips_idxs)
