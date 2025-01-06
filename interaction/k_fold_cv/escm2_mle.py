@@ -26,48 +26,47 @@ except:
     import wandb
 
 
-for seed in range(10):
-    # SETTINGS
-    parser = argparse.ArgumentParser()
+# SETTINGS
+parser = argparse.ArgumentParser()
 
-    parser.add_argument("--embedding-k", type=int, default=128)
-    parser.add_argument("--lr", type=float, default=1e-4)
-    parser.add_argument("--weight-decay", type=float, default=1e-4)
-    parser.add_argument("--batch-size", type=int, default=4096)
-    parser.add_argument("--dataset-name", type=str, default="coat")
+parser.add_argument("--embedding-k", type=int, default=128)
+parser.add_argument("--lr", type=float, default=1e-4)
+parser.add_argument("--weight-decay", type=float, default=1e-4)
+parser.add_argument("--batch-size", type=int, default=4096)
+parser.add_argument("--dataset-name", type=str, default="coat")
 
-    parser.add_argument("--num-epochs", type=int, default=1000)
-    parser.add_argument("--random-seed", type=int, default=seed)
-    parser.add_argument("--evaluate-interval", type=int, default=50)
-    parser.add_argument("--top-k-list", type=list, default=[1,3,5,7,10])
-    parser.add_argument("--data-dir", type=str, default="./data")
+parser.add_argument("--num-epochs", type=int, default=1000)
+parser.add_argument("--random-seed", type=int, default=0)
+parser.add_argument("--evaluate-interval", type=int, default=50)
+parser.add_argument("--top-k-list", type=list, default=[1,3,5,7,10])
+parser.add_argument("--data-dir", type=str, default="./data")
 
-    parser.add_argument("--alpha", type=float, default=1.)
-    parser.add_argument("--beta", type=float, default=0.1)
-    parser.add_argument("--G", type=int, default=1)
+parser.add_argument("--alpha", type=float, default=1.)
+parser.add_argument("--beta", type=float, default=0.1)
+parser.add_argument("--G", type=int, default=1)
 
-    try:
-        args = parser.parse_args()
-    except:
-        args = parser.parse_args([])
+try:
+    args = parser.parse_args()
+except:
+    args = parser.parse_args([])
 
-    embedding_k = args.embedding_k
-    lr = args.lr
-    weight_decay = args.weight_decay
-    batch_size = args.batch_size
-    num_epochs = args.num_epochs
-    random_seed = args.random_seed
-    evaluate_interval = args.evaluate_interval
-    top_k_list = args.top_k_list
-    data_dir = args.data_dir
-    dataset_name = args.dataset_name
-    alpha = args.alpha
-    beta = args.beta
-    G = args.G
+embedding_k = args.embedding_k
+lr = args.lr
+weight_decay = args.weight_decay
+batch_size = args.batch_size
+num_epochs = args.num_epochs
+random_seed = args.random_seed
+evaluate_interval = args.evaluate_interval
+top_k_list = args.top_k_list
+data_dir = args.data_dir
+dataset_name = args.dataset_name
+alpha = args.alpha
+beta = args.beta
+G = args.G
 
-    expt_num = f'{datetime.now().strftime("%y%m%d_%H%M%S_%f")}'
-    set_seed(random_seed)
-    device = set_device()
+expt_num = f'{datetime.now().strftime("%y%m%d_%H%M%S_%f")}'
+set_seed(random_seed)
+device = set_device()
 
 
 # DATA LOADER
