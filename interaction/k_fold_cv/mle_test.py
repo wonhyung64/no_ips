@@ -76,7 +76,7 @@ for cv_num, (train_idx, test_idx) in enumerate(kf.split(x_train)):
     configs["device"] = device
     configs["cv_num"] = cv_num
     wandb_var = wandb.init(project="no_ips", config=configs)
-    wandb.run.name = f"cv_mle_{expt_num}"
+    wandb.run.name = f"cv_mle_test_{expt_num}"
 
     x_train = x_train_cv[train_idx]
     y_train = y_train_cv[train_idx]
@@ -94,7 +94,7 @@ for cv_num, (train_idx, test_idx) in enumerate(kf.split(x_train)):
     model = MF(num_users, num_items, embedding_k)
     model = model.to(device)
     optimizer = torch.optim.Adam(model.parameters(), lr=lr, weight_decay=weight_decay)
-    loss_fcn = torch.nn.BCELoss()
+    loss_fcn = torch.nn.BCELoss(reduction="none")
 
     for epoch in range(1, num_epochs+1):
         ul_idxs = np.arange(x_all.shape[0]) # all
