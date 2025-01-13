@@ -4,7 +4,6 @@ import torch
 import argparse
 import subprocess
 import numpy as np
-import pandas as pd
 import scipy.sparse as sps
 from datetime import datetime
 from sklearn.metrics import roc_auc_score
@@ -83,7 +82,6 @@ for seed in range(10):
 
     num_users = x_train[:,0].max()
     num_items = x_train[:,1].max()
-    num_sample = len(x_train)
     print(f"# user: {num_users}, # item: {num_items}")
 
     obs = sps.csr_matrix((np.ones(len(y_train)), (x_train[:, 0]-1, x_train[:, 1]-1)), shape=(num_users, num_items), dtype=np.float32).toarray().reshape(-1)
@@ -91,13 +89,13 @@ for seed in range(10):
     x_all = generate_total_sample(num_users, num_items)
 
     num_samples = len(x_all)
-    total_batch = num_sample // batch_size
+    total_batch = num_samples // batch_size
 
     # TRAIN
     model = MF(num_users, num_items, embedding_k)
     model = model.to(device)
     optimizer = torch.optim.Adam(model.parameters(), lr=lr, weight_decay=weight_decay)
-    loss_fcn = torch.nn.BCELoss()
+    loss_fcn = torch.nn.BCELoss(reduction="none")
 
     for epoch in range(1, num_epochs+1):
         ul_idxs = np.arange(x_all.shape[0]) # all
