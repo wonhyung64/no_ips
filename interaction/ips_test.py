@@ -148,7 +148,7 @@ for seed in range(10):
 
             selected_idx = ul_idxs[batch_size*idx:(idx+1)*batch_size]
             sub_x = x_all[selected_idx]
-            sub_x = torch.LongTensor(sub_x - 1).to(device)
+            sub_x = torch.LongTensor(sub_x).to(device)
             sub_y = y_entire[selected_idx]
             sub_y = torch.Tensor(sub_y).unsqueeze(-1).to(device)
             sub_t = obs[selected_idx]
