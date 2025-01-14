@@ -15,7 +15,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from module.model import MF
 from module.metric import ndcg_func, recall_func, ap_func
-from module.utils import set_seed, set_device
+from module.utils import set_seed, estimate_ips_bayes, set_device
 from module.dataset import binarize, load_data, generate_total_sample
 
 try:
@@ -77,7 +77,7 @@ for cv_num, (train_idx, test_idx) in enumerate(kf.split(x_train)):
     configs["device"] = device
     configs["cv_num"] = cv_num
     wandb_var = wandb.init(project="no_ips", config=configs)
-    wandb.run.name = f"cv_snips_test_{expt_num}"
+    wandb.run.name = f"cv_ips_test_{expt_num}"
 
     x_train = x_train_cv[train_idx]
     y_train = y_train_cv[train_idx]
@@ -141,7 +141,7 @@ for cv_num, (train_idx, test_idx) in enumerate(kf.split(x_train)):
         model.train()
 
         epoch_total_loss = 0.
-        epoch_snips_loss = 0.
+        epoch_ips_loss = 0.
 
         for idx in range(total_batch):
 
@@ -157,12 +157,12 @@ for cv_num, (train_idx, test_idx) in enumerate(kf.split(x_train)):
             ps_pred, _, __ = ps_model(sub_x)
             inv_prop = 1/torch.nn.Sigmoid()(ps_pred).detach()
 
-            snips_loss = loss_fcn(torch.nn.Sigmoid()(pred), sub_y, inv_prop) / inv_prop.sum()
-            snips_loss = (snips_loss * sub_t).mean()
+            ips_loss = loss_fcn(torch.nn.Sigmoid()(pred), sub_y, inv_prop)
+            ips_loss = (ips_loss * sub_t).mean()
 
-            epoch_snips_loss += snips_loss
+            epoch_ips_loss += ips_loss
 
-            total_loss = snips_loss
+            total_loss = ips_loss
             epoch_total_loss += total_loss
 
             optimizer.zero_grad()
@@ -172,7 +172,7 @@ for cv_num, (train_idx, test_idx) in enumerate(kf.split(x_train)):
         print(f"[Epoch {epoch:>4d} Train Loss] rec: {epoch_total_loss.item():.4f}")
 
         loss_dict: dict = {
-            'epoch_ips_loss': float(epoch_snips_loss.item()),
+            'epoch_ips_loss': float(epoch_ips_loss.item()),
             'epoch_total_loss': float(epoch_total_loss.item()),
         }
 
