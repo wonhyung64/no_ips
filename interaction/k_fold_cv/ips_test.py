@@ -83,7 +83,7 @@ for cv_num, (train_idx, test_idx) in enumerate(kf.split(x_all)):
     configs["device"] = device
     configs["cv_num"] = cv_num
     wandb_var = wandb.init(project="no_ips", config=configs)
-    wandb.run.name = f"cv_ips_{expt_num}"
+    wandb.run.name = f"cv_ips_test_{expt_num}"
 
     x_train = x_train_cv[train_idx]
     y_train = y_train_cv[train_idx]
