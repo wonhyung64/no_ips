@@ -37,7 +37,7 @@ parser.add_argument("--num-epochs", type=int, default=1000)
 parser.add_argument("--random-seed", type=int, default=0)
 parser.add_argument("--evaluate-interval", type=int, default=50)
 parser.add_argument("--top-k-list", type=list, default=[1,3,5,7,10])
-parser.add_argument("--data-dir", type=str, default="./data")
+parser.add_argument("--data-dir", type=str, default="../data")
 parser.add_argument("--dataset-name", type=str, default="yahoo_r3")
 try:
     args = parser.parse_args()
@@ -61,23 +61,17 @@ device = set_device()
 
 
 # DATA LOADER
-x_train, x_test = load_data(data_dir, dataset_name)
+x_train, _ = load_data(data_dir, dataset_name)
 x_train_cv, y_train = x_train[:,:-1], x_train[:,-1]
 y_train_cv = binarize(y_train)
-
-x_test_cv, y_test = x_test[:, :-1], x_test[:,-1]
-y_test_cv = binarize(y_test)
 
 num_users = x_train[:,0].max()
 num_items = x_train[:,1].max()
 print(f"# user: {num_users}, # item: {num_items}")
 
-obs = sps.csr_matrix((np.ones(len(y_train)), (x_train[:, 0]-1, x_train[:, 1]-1)), shape=(num_users, num_items), dtype=np.float32).toarray().reshape(-1)
-y_entire = sps.csr_matrix((y_train, (x_train[:, 0]-1, x_train[:, 1]-1)), shape=(num_users, num_items), dtype=np.float32).toarray().reshape(-1)
-x_all = generate_total_sample(num_users, num_items)
 
 kf = KFold(n_splits=4, shuffle=True, random_state=random_seed)
-for cv_num, (train_idx, test_idx) in enumerate(kf.split(x_all)):
+for cv_num, (train_idx, test_idx) in enumerate(kf.split(x_train)):
 
     configs = vars(args)
     configs["device"] = device
@@ -90,8 +84,12 @@ for cv_num, (train_idx, test_idx) in enumerate(kf.split(x_all)):
     x_test = x_train_cv[test_idx]
     y_test = y_train_cv[test_idx]
 
-    num_sample = len(x_train)
-    total_batch = num_sample // batch_size
+    obs = sps.csr_matrix((np.ones(len(y_train)), (x_train[:, 0]-1, x_train[:, 1]-1)), shape=(num_users, num_items), dtype=np.float32).toarray().reshape(-1)
+    y_entire = sps.csr_matrix((y_train, (x_train[:, 0]-1, x_train[:, 1]-1)), shape=(num_users, num_items), dtype=np.float32).toarray().reshape(-1)
+    x_all = generate_total_sample(num_users, num_items)
+
+    num_samples = len(x_all)
+    total_batch = num_samples // batch_size
 
     ps_model = MF(num_users, num_items, 4)
     ps_model = ps_model.to(device)
@@ -135,16 +133,10 @@ for cv_num, (train_idx, test_idx) in enumerate(kf.split(x_all)):
     model = MF(num_users, num_items, embedding_k)
     model = model.to(device)
     optimizer = torch.optim.Adam(model.parameters(), lr=lr, weight_decay=weight_decay)
-    loss_fcn = lambda x, y, z: F.binary_cross_entropy(x, y, z)
-
-    ips_idxs = np.arange(len(y_test_cv))
-    np.random.shuffle(ips_idxs)
-    y_ips = y_test_cv[ips_idxs[:int(0.05 * len(ips_idxs))]]
-
-    one_over_zl = estimate_ips_bayes(x_train, y_train, y_ips)
+    loss_fcn = lambda x, y, z: F.binary_cross_entropy(x, y, z, reduction="none")
 
     for epoch in range(1, num_epochs+1):
-        all_idx = np.arange(num_sample)
+        all_idx = np.arange(num_samples)
         np.random.shuffle(all_idx)
         model.train()
 
@@ -153,16 +145,20 @@ for cv_num, (train_idx, test_idx) in enumerate(kf.split(x_all)):
 
         for idx in range(total_batch):
 
-            selected_idx = all_idx[batch_size*idx:(idx+1)*batch_size]
-            sub_x = x_train[selected_idx]
-            sub_x = torch.LongTensor(sub_x - 1).to(device)
-            sub_y = y_train[selected_idx]
+            selected_idx = ul_idxs[batch_size*idx:(idx+1)*batch_size]
+            sub_x = x_all[selected_idx]
+            sub_x = torch.LongTensor(sub_x).to(device)
+            sub_y = y_entire[selected_idx]
             sub_y = torch.Tensor(sub_y).unsqueeze(-1).to(device)
+            sub_t = obs[selected_idx]
+            sub_t = torch.Tensor(sub_t).unsqueeze(-1).to(device)
 
             pred, user_embed, item_embed = model(sub_x)
-            inv_prop = one_over_zl[selected_idx].unsqueeze(-1).to(device)
+            ps_pred, _, __ = ps_model(sub_x)
+            inv_prop = 1/torch.nn.Sigmoid()(ps_pred).detach()
 
             ips_loss = loss_fcn(torch.nn.Sigmoid()(pred), sub_y, inv_prop)
+            ips_loss = (ips_loss * sub_t).mean()
 
             epoch_ips_loss += ips_loss
 
