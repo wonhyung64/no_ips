@@ -168,6 +168,7 @@ for seed in range(10):
     model = model.to(device)
     optimizer = torch.optim.Adam(model.parameters(), lr=lr, weight_decay=weight_decay)
     loss_fcn = lambda x, y, z=None: F.binary_cross_entropy(x, y, z, reduction="none")
+    inv_prop = torch.ones([1]).to(device)
 
     for epoch in range(1, num_epochs+1):
         ul_idxs = np.arange(x_all.shape[0]) # all
@@ -192,8 +193,6 @@ for seed in range(10):
             if loss_type == "ips":
                 ps_pred, _, __ = ps_model(sub_x)
                 inv_prop = 1/torch.nn.Sigmoid()(ps_pred).detach()
-            elif loss_type == "naive":
-                inv_prop = torch.ones_like(pred)
 
             rec_loss = loss_fcn(torch.nn.Sigmoid()(pred), sub_y, inv_prop) 
             rec_loss = (rec_loss * sub_t).mean()
@@ -250,3 +249,5 @@ for seed in range(10):
 
     wandb.finish()
 
+
+# %%
