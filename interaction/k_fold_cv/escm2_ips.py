@@ -130,7 +130,8 @@ for cv_num, (train_idx, test_idx) in enumerate(kf.split(x_train)):
             pred_cvr, pred_ctr, pred_ctcvr = model(x_sampled)
             ctr_loss = loss_fcn(nn.Sigmoid()(pred_ctr), sub_obs)
             ctcvr_loss = loss_fcn(pred_ctcvr, sub_entire_y) * alpha
-            cvr_loss = F.binary_cross_entropy(nn.Sigmoid()(pred_cvr), sub_entire_y, 1/(nn.Sigmoid()(pred_ctr).detach())) * beta
+            cvr_loss = F.binary_cross_entropy(nn.Sigmoid()(pred_cvr), sub_entire_y, 1/(nn.Sigmoid()(pred_ctr).detach()), reduction="none")
+            cvr_loss = (cvr_loss * sub_obs).mean() * beta
             total_loss = ctr_loss + ctcvr_loss + cvr_loss
 
             epoch_ctr_loss += ctr_loss

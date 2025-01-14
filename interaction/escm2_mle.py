@@ -133,7 +133,8 @@ for seed in range(10):
             pred_cvr, pred_ctr, pred_ctcvr = model(x_sampled)
             ctr_loss = loss_fcn(nn.Sigmoid()(pred_ctr), sub_obs)
             ctcvr_loss = loss_fcn(pred_ctcvr, sub_entire_y) * alpha
-            cvr_loss = loss_fcn(nn.Sigmoid()(pred_cvr), sub_entire_y) * beta
+            cvr_loss = F.binary_cross_entropy(nn.Sigmoid()(pred_cvr), sub_entire_y, reduction="none")
+            cvr_loss = (cvr_loss * sub_obs).mean() * beta
             total_loss = ctr_loss + ctcvr_loss + cvr_loss
 
             epoch_ctr_loss += ctr_loss
