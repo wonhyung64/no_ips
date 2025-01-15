@@ -84,7 +84,7 @@ for cv_num, (train_idx, test_idx) in enumerate(kf.split(x_train)):
     x_test = x_train_cv[test_idx]
     y_test = y_train_cv[test_idx]
 
-    num_sample = len(x_train)
+    num_sample = len(x_all)
     total_batch = num_sample // batch_size
 
     # TRAIN
@@ -119,7 +119,9 @@ for cv_num, (train_idx, test_idx) in enumerate(kf.split(x_train)):
 
             pred_cvr, pred_ctr = model(x_sampled)
             ctr_loss = loss_fcn(nn.Sigmoid()(pred_ctr), sub_obs)
-            cvr_loss = F.binary_cross_entropy(nn.Sigmoid()(pred_cvr), sub_entire_y, 1/(nn.Sigmoid()(pred_ctr).detach()))
+            inv_prop = 1/torch.nn.Sigmoid()(pred_ctr).detach()
+            cvr_loss = F.binary_cross_entropy(nn.Sigmoid()(pred_cvr), sub_entire_y, inv_prop, reduction="none")
+            cvr_loss = (cvr_loss * sub_obs).mean()
             total_loss = ctr_loss + cvr_loss
 
             epoch_ctr_loss += ctr_loss
