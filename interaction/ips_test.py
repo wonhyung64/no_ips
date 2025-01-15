@@ -26,18 +26,18 @@ for seed in range(10):
     parser = argparse.ArgumentParser()
 
     """coat"""
-    parser.add_argument("--embedding-k", type=int, default=64)
-    parser.add_argument("--lr", type=float, default=1e-2)
-    parser.add_argument("--weight-decay", type=float, default=1e-4)
-    parser.add_argument("--batch-size", type=int, default=4096)
-    parser.add_argument("--dataset-name", type=str, default="coat")
+    # parser.add_argument("--embedding-k", type=int, default=64)
+    # parser.add_argument("--lr", type=float, default=1e-2)
+    # parser.add_argument("--weight-decay", type=float, default=1e-4)
+    # parser.add_argument("--batch-size", type=int, default=4096)
+    # parser.add_argument("--dataset-name", type=str, default="coat")
 
     """yahoo"""
-    # parser.add_argument("--embedding-k", type=int, default=128)
-    # parser.add_argument("--lr", type=float, default=1e-3)
-    # parser.add_argument("--weight-decay", type=float, default=1e-4)
-    # parser.add_argument("--batch-size", type=int, default=8192)
-    # parser.add_argument("--dataset-name", type=str, default="yahoo_r3")
+    parser.add_argument("--embedding-k", type=int, default=128)
+    parser.add_argument("--lr", type=float, default=1e-4)
+    parser.add_argument("--weight-decay", type=float, default=1e-6)
+    parser.add_argument("--batch-size", type=int, default=8192)
+    parser.add_argument("--dataset-name", type=str, default="yahoo_r3")
 
     parser.add_argument("--num-epochs", type=int, default=1000)
     parser.add_argument("--random-seed", type=int, default=seed)
@@ -70,7 +70,7 @@ for seed in range(10):
     configs = vars(args)
     configs["device"] = device
     wandb_var = wandb.init(project="no_ips", config=configs)
-    wandb.run.name = f"ips_test_{expt_num}"
+    wandb.run.name = f"ips_testtttt_{expt_num}"
 
 
     # DATA LOADER
