@@ -72,7 +72,7 @@ for seed in range(10):
     # parser.add_argument("--dataset-name", type=str, default="yahoo_r3")
 
     parser.add_argument("--embedding-k", type=int, default=64)
-    parser.add_argument("--num-epochs", type=int, default=1)
+    parser.add_argument("--num-epochs", type=int, default=1000)
     parser.add_argument("--random-seed", type=int, default=seed)
     parser.add_argument("--evaluate-interval", type=int, default=50)
     parser.add_argument("--top-k-list", type=list, default=[1,3,5,7,10])
@@ -170,82 +170,82 @@ for seed in range(10):
     loss_fcn = lambda x, y, z=None: F.binary_cross_entropy(x, y, z, reduction="none")
     inv_prop = torch.ones([1]).to(device)
 
-    # for epoch in range(1, num_epochs+1):
-    #     ul_idxs = np.arange(x_all.shape[0]) # all
-    #     np.random.shuffle(ul_idxs)
-    #     model.train()
+    for epoch in range(1, num_epochs+1):
+        ul_idxs = np.arange(x_all.shape[0]) # all
+        np.random.shuffle(ul_idxs)
+        model.train()
 
-    #     epoch_total_loss = 0.
-    #     epoch_rec_loss = 0.
+        epoch_total_loss = 0.
+        epoch_rec_loss = 0.
 
-    #     for idx in range(total_batch):
+        for idx in range(total_batch):
 
-    #         selected_idx = ul_idxs[batch_size*idx:(idx+1)*batch_size]
-    #         sub_x = x_all[selected_idx]
-    #         sub_x = torch.LongTensor(sub_x).to(device)
-    #         sub_y = y_entire[selected_idx]
-    #         sub_y = torch.Tensor(sub_y).unsqueeze(-1).to(device)
-    #         sub_t = obs[selected_idx]
-    #         sub_t = torch.Tensor(sub_t).unsqueeze(-1).to(device)
+            selected_idx = ul_idxs[batch_size*idx:(idx+1)*batch_size]
+            sub_x = x_all[selected_idx]
+            sub_x = torch.LongTensor(sub_x).to(device)
+            sub_y = y_entire[selected_idx]
+            sub_y = torch.Tensor(sub_y).unsqueeze(-1).to(device)
+            sub_t = obs[selected_idx]
+            sub_t = torch.Tensor(sub_t).unsqueeze(-1).to(device)
 
-    #         pred, user_embed, item_embed = model(sub_x)
+            pred, user_embed, item_embed = model(sub_x)
 
-    #         if loss_type == "ips":
-    #             ps_pred, _, __ = ps_model(sub_x)
-    #             inv_prop = 1/torch.nn.Sigmoid()(ps_pred).detach()
+            if loss_type == "ips":
+                ps_pred, _, __ = ps_model(sub_x)
+                inv_prop = 1/torch.nn.Sigmoid()(ps_pred).detach()
 
-    #         rec_loss = loss_fcn(torch.nn.Sigmoid()(pred), sub_y, inv_prop) 
-    #         rec_loss = (rec_loss * sub_t).mean()
-    #         epoch_rec_loss += rec_loss
+            rec_loss = loss_fcn(torch.nn.Sigmoid()(pred), sub_y, inv_prop) 
+            rec_loss = (rec_loss * sub_t).mean()
+            epoch_rec_loss += rec_loss
 
-    #         total_loss = rec_loss
-    #         epoch_total_loss += total_loss
+            total_loss = rec_loss
+            epoch_total_loss += total_loss
 
-    #         optimizer.zero_grad()
-    #         total_loss.backward()
-    #         optimizer.step()
+            optimizer.zero_grad()
+            total_loss.backward()
+            optimizer.step()
 
-    #     print(f"[Epoch {epoch:>4d} Train Loss] rec: {epoch_total_loss.item():.4f}")
+        print(f"[Epoch {epoch:>4d} Train Loss] rec: {epoch_total_loss.item():.4f}")
 
-    #     loss_dict: dict = {
-    #         'epoch_rec_loss': float(epoch_rec_loss.item()),
-    #         'epoch_total_loss': float(epoch_total_loss.item()),
-    #     }
+        loss_dict: dict = {
+            'epoch_rec_loss': float(epoch_rec_loss.item()),
+            'epoch_total_loss': float(epoch_total_loss.item()),
+        }
 
-    #     wandb_var.log(loss_dict)
+        wandb_var.log(loss_dict)
 
-    #     if epoch % evaluate_interval == 0:
-    #         model.eval()
-    #         x_test_tensor = torch.LongTensor(x_test-1).to(device)
-    #         pred_, _, __ = model(x_test_tensor)
-    #         pred = pred_.flatten().cpu().detach().numpy()
+        if epoch % evaluate_interval == 0:
+            model.eval()
+            x_test_tensor = torch.LongTensor(x_test-1).to(device)
+            pred_, _, __ = model(x_test_tensor)
+            pred = pred_.flatten().cpu().detach().numpy()
 
-    #         ndcg_res = ndcg_func(pred, x_test, y_test, top_k_list)
-    #         ndcg_dict: dict = {}
-    #         for top_k in top_k_list:
-    #             ndcg_dict[f"ndcg_{top_k}"] = np.mean(ndcg_res[f"ndcg_{top_k}"])
+            ndcg_res = ndcg_func(pred, x_test, y_test, top_k_list)
+            ndcg_dict: dict = {}
+            for top_k in top_k_list:
+                ndcg_dict[f"ndcg_{top_k}"] = np.mean(ndcg_res[f"ndcg_{top_k}"])
 
-    #         recall_res = recall_func(pred, x_test, y_test, top_k_list)
-    #         recall_dict: dict = {}
-    #         for top_k in top_k_list:
-    #             recall_dict[f"recall_{top_k}"] = np.mean(recall_res[f"recall_{top_k}"])
+            recall_res = recall_func(pred, x_test, y_test, top_k_list)
+            recall_dict: dict = {}
+            for top_k in top_k_list:
+                recall_dict[f"recall_{top_k}"] = np.mean(recall_res[f"recall_{top_k}"])
 
-    #         ap_res = ap_func(pred, x_test, y_test, top_k_list)
-    #         ap_dict: dict = {}
-    #         for top_k in top_k_list:
-    #             ap_dict[f"ap_{top_k}"] = np.mean(ap_res[f"ap_{top_k}"])
+            ap_res = ap_func(pred, x_test, y_test, top_k_list)
+            ap_dict: dict = {}
+            for top_k in top_k_list:
+                ap_dict[f"ap_{top_k}"] = np.mean(ap_res[f"ap_{top_k}"])
 
-    #         auc = roc_auc_score(y_test, pred)
+            auc = roc_auc_score(y_test, pred)
 
-    #         wandb_var.log(ndcg_dict)
-    #         wandb_var.log(recall_dict)
-    #         wandb_var.log(ap_dict)
-    #         wandb_var.log({"auc": auc})
+            wandb_var.log(ndcg_dict)
+            wandb_var.log(recall_dict)
+            wandb_var.log(ap_dict)
+            wandb_var.log({"auc": auc})
 
-    # print(f"NDCG: {ndcg_dict}")
-    # print(f"Recall: {recall_dict}")
-    # print(f"AP: {ap_dict}")
-    # print(f"AUC: {auc}")
+    print(f"NDCG: {ndcg_dict}")
+    print(f"Recall: {recall_dict}")
+    print(f"AP: {ap_dict}")
+    print(f"AUC: {auc}")
 
     os.makedirs("./cvr", exist_ok=True)
     torch.save(model.state_dict(), f"./cvr/data={dataset_name}_loss={loss_type}_wd={'%.0e'%weight_decay}_lr={'%.0e'%lr}_seed={random_seed}.pt")
