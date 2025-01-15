@@ -4,13 +4,13 @@ import torch
 import argparse
 import subprocess
 import numpy as np
-import pandas as pd
+import scipy.sparse as sps
 from datetime import datetime
 from sklearn.metrics import roc_auc_score
 
 from module.model import MF
 from module.metric import ndcg_func, recall_func, ap_func
-from module.dataset import binarize, load_data
+from module.dataset import binarize, load_data, generate_total_sample
 from module.utils import set_device, set_seed
 
 try:
@@ -26,15 +26,15 @@ for seed in range(10):
 
     """coat"""
     parser.add_argument("--embedding-k", type=int, default=64)
-    parser.add_argument("--lr", type=float, default=1e-2)
-    parser.add_argument("--weight-decay", type=float, default=1e-4)
+    parser.add_argument("--lr", type=float, default=1e-3)
+    parser.add_argument("--weight-decay", type=float, default=1e-5)
     parser.add_argument("--batch-size", type=int, default=4096)
     parser.add_argument("--dataset-name", type=str, default="coat")
 
     """yahoo"""
-    # parser.add_argument("--embedding-k", type=int, default=128)
-    # parser.add_argument("--lr", type=float, default=1e-3)
-    # parser.add_argument("--weight-decay", type=float, default=1e-5)
+    # parser.add_argument("--embedding-k", type=int, default=64)
+    # parser.add_argument("--lr", type=float, default=1e-4)
+    # parser.add_argument("--weight-decay", type=float, default=1e-6)
     # parser.add_argument("--batch-size", type=int, default=8192)
     # parser.add_argument("--dataset-name", type=str, default="yahoo_r3")
 
@@ -68,7 +68,7 @@ for seed in range(10):
     configs = vars(args)
     configs["device"] = device
     wandb_var = wandb.init(project="no_ips", config=configs)
-    wandb.run.name = f"mle_{expt_num}"
+    wandb.run.name = f"mle_test_{expt_num}"
 
 
     # DATA LOADER
@@ -82,20 +82,24 @@ for seed in range(10):
 
     num_users = x_train[:,0].max()
     num_items = x_train[:,1].max()
-    num_sample = len(x_train)
     print(f"# user: {num_users}, # item: {num_items}")
 
-    total_batch = num_sample // batch_size
+    obs = sps.csr_matrix((np.ones(len(y_train)), (x_train[:, 0]-1, x_train[:, 1]-1)), shape=(num_users, num_items), dtype=np.float32).toarray().reshape(-1)
+    y_entire = sps.csr_matrix((y_train, (x_train[:, 0]-1, x_train[:, 1]-1)), shape=(num_users, num_items), dtype=np.float32).toarray().reshape(-1)
+    x_all = generate_total_sample(num_users, num_items)
+
+    num_samples = len(x_all)
+    total_batch = num_samples // batch_size
 
     # TRAIN
     model = MF(num_users, num_items, embedding_k)
     model = model.to(device)
     optimizer = torch.optim.Adam(model.parameters(), lr=lr, weight_decay=weight_decay)
-    loss_fcn = torch.nn.BCELoss()
+    loss_fcn = torch.nn.BCELoss(reduction="none")
 
     for epoch in range(1, num_epochs+1):
-        all_idx = np.arange(num_sample)
-        np.random.shuffle(all_idx)
+        ul_idxs = np.arange(x_all.shape[0]) # all
+        np.random.shuffle(ul_idxs)
         model.train()
 
         epoch_total_loss = 0.
@@ -103,15 +107,18 @@ for seed in range(10):
 
         for idx in range(total_batch):
 
-            selected_idx = all_idx[batch_size*idx:(idx+1)*batch_size]
-            sub_x = x_train[selected_idx]
-            sub_x = torch.LongTensor(sub_x - 1).to(device)
-            sub_y = y_train[selected_idx]
+            selected_idx = ul_idxs[batch_size*idx:(idx+1)*batch_size]
+            sub_x = x_all[selected_idx]
+            sub_x = torch.LongTensor(sub_x).to(device)
+            sub_y = y_entire[selected_idx]
             sub_y = torch.Tensor(sub_y).unsqueeze(-1).to(device)
+            sub_t = obs[selected_idx]
+            sub_t = torch.Tensor(sub_t).unsqueeze(-1).to(device)
 
             pred, user_embed, item_embed = model(sub_x)
 
             rec_loss = loss_fcn(torch.nn.Sigmoid()(pred), sub_y)
+            rec_loss = (rec_loss * sub_t).mean()
             epoch_rec_loss += rec_loss
 
             total_loss = rec_loss
