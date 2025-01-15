@@ -17,6 +17,7 @@ data
 wandb
 multi_run.sh
 run_src.sh
+ablation.sh
 weights
 logs
 .DS_Store
