@@ -84,6 +84,10 @@ for cv_num, (train_idx, test_idx) in enumerate(kf.split(x_train)):
     x_test = x_train_cv[test_idx]
     y_test = y_train_cv[test_idx]
 
+    obs = sps.csr_matrix((np.ones(len(y_train)), (x_train[:, 0]-1, x_train[:, 1]-1)), shape=(num_users, num_items), dtype=np.float32).toarray().reshape(-1)
+    y_entire = sps.csr_matrix((y_train, (x_train[:, 0]-1, x_train[:, 1]-1)), shape=(num_users, num_items), dtype=np.float32).toarray().reshape(-1)
+    x_all = generate_total_sample(num_users, num_items)
+
     num_sample = len(x_all)
     total_batch = num_sample // batch_size
 
@@ -92,10 +96,6 @@ for cv_num, (train_idx, test_idx) in enumerate(kf.split(x_train)):
     model = model.to(device)
     optimizer = torch.optim.Adam(model.parameters(), lr=lr, weight_decay=weight_decay)
     loss_fcn = torch.nn.BCELoss()
-
-    obs = sps.csr_matrix((np.ones(len(y_train)), (x_train[:, 0]-1, x_train[:, 1]-1)), shape=(num_users, num_items), dtype=np.float32).toarray().reshape(-1)
-    y_entire = sps.csr_matrix((y_train, (x_train[:, 0]-1, x_train[:, 1]-1)), shape=(num_users, num_items), dtype=np.float32).toarray().reshape(-1)
-    x_all = generate_total_sample(num_users, num_items)
 
     for epoch in range(1, num_epochs+1):
         all_idx = np.arange(num_sample)
