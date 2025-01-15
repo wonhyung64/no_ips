@@ -5,6 +5,7 @@ import torch
 import argparse
 import subprocess
 import numpy as np
+import scipy.sparse as sps
 from datetime import datetime
 import torch.nn.functional as F
 from sklearn.metrics import roc_auc_score
@@ -14,8 +15,8 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from module.model import MF
 from module.metric import ndcg_func, recall_func, ap_func
-from module.utils import set_seed, estimate_ips_bayes, set_device
-from module.dataset import binarize, load_data
+from module.utils import set_seed, set_device
+from module.dataset import binarize, load_data, generate_total_sample
 
 try:
     import wandb
@@ -36,7 +37,7 @@ parser.add_argument("--num-epochs", type=int, default=1000)
 parser.add_argument("--random-seed", type=int, default=0)
 parser.add_argument("--evaluate-interval", type=int, default=50)
 parser.add_argument("--top-k-list", type=list, default=[1,3,5,7,10])
-parser.add_argument("--data-dir", type=str, default="./data")
+parser.add_argument("--data-dir", type=str, default="../data")
 parser.add_argument("--dataset-name", type=str, default="yahoo_r3")
 try:
     args = parser.parse_args()
@@ -60,16 +61,14 @@ device = set_device()
 
 
 # DATA LOADER
-x_train, x_test = load_data(data_dir, dataset_name)
+x_train, _ = load_data(data_dir, dataset_name)
 x_train_cv, y_train = x_train[:,:-1], x_train[:,-1]
 y_train_cv = binarize(y_train)
-
-x_test_cv, y_test = x_test[:, :-1], x_test[:,-1]
-y_test_cv = binarize(y_test)
 
 num_users = x_train[:,0].max()
 num_items = x_train[:,1].max()
 print(f"# user: {num_users}, # item: {num_items}")
+
 
 kf = KFold(n_splits=4, shuffle=True, random_state=random_seed)
 for cv_num, (train_idx, test_idx) in enumerate(kf.split(x_train)):
@@ -78,51 +77,90 @@ for cv_num, (train_idx, test_idx) in enumerate(kf.split(x_train)):
     configs["device"] = device
     configs["cv_num"] = cv_num
     wandb_var = wandb.init(project="no_ips", config=configs)
-    wandb.run.name = f"cv_snips_{expt_num}"
+    wandb.run.name = f"cv_snips_test_{expt_num}"
 
     x_train = x_train_cv[train_idx]
     y_train = y_train_cv[train_idx]
     x_test = x_train_cv[test_idx]
     y_test = y_train_cv[test_idx]
 
-    num_sample = len(x_train)
-    total_batch = num_sample // batch_size
+    obs = sps.csr_matrix((np.ones(len(y_train)), (x_train[:, 0]-1, x_train[:, 1]-1)), shape=(num_users, num_items), dtype=np.float32).toarray().reshape(-1)
+    y_entire = sps.csr_matrix((y_train, (x_train[:, 0]-1, x_train[:, 1]-1)), shape=(num_users, num_items), dtype=np.float32).toarray().reshape(-1)
+    x_all = generate_total_sample(num_users, num_items)
+
+    num_samples = len(x_all)
+    total_batch = num_samples // batch_size
+
+    ps_model = MF(num_users, num_items, 4)
+    ps_model = ps_model.to(device)
+    optimizer = torch.optim.Adam(ps_model.parameters(), lr=1e-2, weight_decay=1e-4)
+    loss_fcn = torch.nn.BCELoss()
+
+    for epoch in range(1, num_epochs+1):
+        ul_idxs = np.arange(x_all.shape[0]) # all
+        np.random.shuffle(ul_idxs)
+        ps_model.train()
+
+        epoch_select_loss = 0.
+
+        for idx in range(total_batch):
+
+            selected_idx = ul_idxs[batch_size*idx:(idx+1)*batch_size]
+            sub_x = x_all[selected_idx]
+            sub_x = torch.LongTensor(sub_x).to(device)
+            sub_t = obs[selected_idx]
+            sub_t = torch.Tensor(sub_t).unsqueeze(-1).to(device)
+
+            pred, user_embed, item_embed = ps_model(sub_x)
+
+            select_loss = loss_fcn(torch.nn.Sigmoid()(pred), sub_t)
+            epoch_select_loss += select_loss
+
+            optimizer.zero_grad()
+            select_loss.backward()
+            optimizer.step()
+
+        print(f"[Epoch {epoch:>4d} Train Propensity Loss] select: {epoch_select_loss.item():.4f}")
+
+        loss_dict: dict = {
+            'epoch_select_loss': float(epoch_select_loss.item()),
+        }
+
+        wandb_var.log(loss_dict)
+
 
     # TRAIN
     model = MF(num_users, num_items, embedding_k)
     model = model.to(device)
     optimizer = torch.optim.Adam(model.parameters(), lr=lr, weight_decay=weight_decay)
-    loss_fcn = lambda x, y, z: F.binary_cross_entropy(x, y, z)
-
-    ips_idxs = np.arange(len(y_test_cv))
-    np.random.shuffle(ips_idxs)
-    y_ips = y_test_cv[ips_idxs[:int(0.05 * len(ips_idxs))]]
-
-    one_over_zl = estimate_ips_bayes(x_train, y_train, y_ips)
+    loss_fcn = lambda x, y, z: F.binary_cross_entropy(x, y, z, reduction="none")
 
     for epoch in range(1, num_epochs+1):
-        all_idx = np.arange(num_sample)
+        all_idx = np.arange(num_samples)
         np.random.shuffle(all_idx)
         model.train()
 
         epoch_total_loss = 0.
-        epoch_ips_loss = 0.
+        epoch_snips_loss = 0.
 
         for idx in range(total_batch):
 
-            selected_idx = all_idx[batch_size*idx:(idx+1)*batch_size]
-            sub_x = x_train[selected_idx]
-            sub_x = torch.LongTensor(sub_x - 1).to(device)
-            sub_y = y_train[selected_idx]
+            selected_idx = ul_idxs[batch_size*idx:(idx+1)*batch_size]
+            sub_x = x_all[selected_idx]
+            sub_x = torch.LongTensor(sub_x).to(device)
+            sub_y = y_entire[selected_idx]
             sub_y = torch.Tensor(sub_y).unsqueeze(-1).to(device)
+            sub_t = obs[selected_idx]
+            sub_t = torch.Tensor(sub_t).unsqueeze(-1).to(device)
 
             pred, user_embed, item_embed = model(sub_x)
-            inv_prop = one_over_zl[selected_idx].unsqueeze(-1).to(device)
-            sum_inv_prop = torch.sum(inv_prop)
+            ps_pred, _, __ = ps_model(sub_x)
+            inv_prop = 1/torch.nn.Sigmoid()(ps_pred).detach()
 
-            snips_loss = loss_fcn(torch.nn.Sigmoid()(pred), sub_y, inv_prop) / sum_inv_prop
+            snips_loss = loss_fcn(torch.nn.Sigmoid()(pred), sub_y, inv_prop) / inv_prop.sum()
+            snips_loss = (snips_loss * sub_t).mean()
 
-            epoch_ips_loss += snips_loss
+            epoch_snips_loss += snips_loss
 
             total_loss = snips_loss
             epoch_total_loss += total_loss
@@ -134,7 +172,7 @@ for cv_num, (train_idx, test_idx) in enumerate(kf.split(x_train)):
         print(f"[Epoch {epoch:>4d} Train Loss] rec: {epoch_total_loss.item():.4f}")
 
         loss_dict: dict = {
-            'epoch_snips_loss': float(epoch_ips_loss.item()),
+            'epoch_snips_loss': float(epoch_snips_loss.item()),
             'epoch_total_loss': float(epoch_total_loss.item()),
         }
 

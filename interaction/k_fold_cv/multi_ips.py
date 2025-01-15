@@ -88,8 +88,8 @@ for cv_num, (train_idx, test_idx) in enumerate(kf.split(x_train)):
     y_entire = sps.csr_matrix((y_train, (x_train[:, 0]-1, x_train[:, 1]-1)), shape=(num_users, num_items), dtype=np.float32).toarray().reshape(-1)
     x_all = generate_total_sample(num_users, num_items)
 
-    num_sample = len(x_all)
-    total_batch = num_sample // batch_size
+    num_samples = len(x_all)
+    total_batch = num_samples // batch_size
 
     # TRAIN
     model = MultiIps(num_users, num_items, embedding_k)
@@ -98,12 +98,10 @@ for cv_num, (train_idx, test_idx) in enumerate(kf.split(x_train)):
     loss_fcn = torch.nn.BCELoss()
 
     for epoch in range(1, num_epochs+1):
-        all_idx = np.arange(num_sample)
-        np.random.shuffle(all_idx)
-        model.train()
-
+        
         ul_idxs = np.arange(x_all.shape[0]) # all
         np.random.shuffle(ul_idxs)
+        model.train()
 
         epoch_ctr_loss = 0.
         epoch_cvr_loss = 0.
