@@ -10,6 +10,9 @@ import scipy.sparse as sps
 import torch.nn.functional as F
 from datetime import datetime
 from sklearn.metrics import roc_auc_score
+from sklearn.model_selection import KFold
+
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from module.model import ESCM2Ips
 from module.metric import ndcg_func, recall_func, ap_func
@@ -23,76 +26,71 @@ except:
     import wandb
 
 
-for seed in range(10):
-    # SETTINGS
-    parser = argparse.ArgumentParser()
+# SETTINGS
+parser = argparse.ArgumentParser()
 
-    """coat"""
-    parser.add_argument("--embedding-k", type=int, default=64)
-    parser.add_argument("--lr", type=float, default=1e-4)
-    parser.add_argument("--weight-decay", type=float, default=1e-6)
-    parser.add_argument("--batch-size", type=int, default=4096)
-    parser.add_argument("--dataset-name", type=str, default="coat")
+parser.add_argument("--embedding-k", type=int, default=128)
+parser.add_argument("--lr", type=float, default=1e-4)
+parser.add_argument("--weight-decay", type=float, default=1e-4)
+parser.add_argument("--batch-size", type=int, default=4096)
+parser.add_argument("--dataset-name", type=str, default="coat")
 
-    """yahoo"""
-    # parser.add_argument("--embedding-k", type=int, default=64)
-    # parser.add_argument("--lr", type=float, default=1e-3)
-    # parser.add_argument("--weight-decay", type=float, default=1e-5)
-    # parser.add_argument("--batch-size", type=int, default=8192)
-    # parser.add_argument("--dataset-name", type=str, default="yahoo_r3")
+parser.add_argument("--num-epochs", type=int, default=1000)
+parser.add_argument("--random-seed", type=int, default=0)
+parser.add_argument("--evaluate-interval", type=int, default=50)
+parser.add_argument("--top-k-list", type=list, default=[1,3,5,7,10])
+parser.add_argument("--data-dir", type=str, default="./data")
 
-    parser.add_argument("--num-epochs", type=int, default=1000)
-    parser.add_argument("--random-seed", type=int, default=seed)
-    parser.add_argument("--evaluate-interval", type=int, default=50)
-    parser.add_argument("--top-k-list", type=list, default=[1,3,5,7,10])
-    parser.add_argument("--data-dir", type=str, default="./data")
+parser.add_argument("--alpha", type=float, default=1.)
+parser.add_argument("--beta", type=float, default=0.1)
+parser.add_argument("--G", type=int, default=1)
 
-    parser.add_argument("--alpha", type=float, default=1.)
-    parser.add_argument("--beta", type=float, default=0.1)
-    parser.add_argument("--G", type=int, default=1)
+try:
+    args = parser.parse_args()
+except:
+    args = parser.parse_args([])
 
-    try:
-        args = parser.parse_args()
-    except:
-        args = parser.parse_args([])
+embedding_k = args.embedding_k
+lr = args.lr
+weight_decay = args.weight_decay
+batch_size = args.batch_size
+num_epochs = args.num_epochs
+random_seed = args.random_seed
+evaluate_interval = args.evaluate_interval
+top_k_list = args.top_k_list
+data_dir = args.data_dir
+dataset_name = args.dataset_name
+alpha = args.alpha
+beta = args.beta
+G = args.G
 
-    embedding_k = args.embedding_k
-    lr = args.lr
-    weight_decay = args.weight_decay
-    batch_size = args.batch_size
-    num_epochs = args.num_epochs
-    random_seed = args.random_seed
-    evaluate_interval = args.evaluate_interval
-    top_k_list = args.top_k_list
-    data_dir = args.data_dir
-    dataset_name = args.dataset_name
-    alpha = args.alpha
-    beta = args.beta
-    G = args.G
-
-    expt_num = f'{datetime.now().strftime("%y%m%d_%H%M%S_%f")}'
-    set_seed(random_seed)
-    device = set_device()
+expt_num = f'{datetime.now().strftime("%y%m%d_%H%M%S_%f")}'
+set_seed(random_seed)
+device = set_device()
 
 
-    # WANDB
+# DATA LOADER
+x_train, x_test = load_data(data_dir, dataset_name)
+x_train_cv, y_train = x_train[:,:-1], x_train[:,-1]
+y_train_cv = binarize(y_train)
+
+num_users = x_train[:,0].max()
+num_items = x_train[:,1].max()
+print(f"# user: {num_users}, # item: {num_items}")
+
+kf = KFold(n_splits=4, shuffle=True, random_state=random_seed)
+for cv_num, (train_idx, test_idx) in enumerate(kf.split(x_train)):
+
     configs = vars(args)
     configs["device"] = device
+    configs["cv_num"] = cv_num
     wandb_var = wandb.init(project="no_ips", config=configs)
-    wandb.run.name = f"escm2_ips_{expt_num}"
+    wandb.run.name = f"cv_escm2_ips_{expt_num}"
 
-
-    # DATA LOADER
-    x_train, x_test = load_data(data_dir, dataset_name)
-    x_train, y_train = x_train[:,:-1], x_train[:,-1]
-    x_test, y_test = x_test[:, :-1], x_test[:,-1]
-
-    y_train = binarize(y_train)
-    y_test = binarize(y_test)
-
-    num_users = x_train[:,0].max()
-    num_items = x_train[:,1].max()
-    print(f"# user: {num_users}, # item: {num_items}")
+    x_train = x_train_cv[train_idx]
+    y_train = y_train_cv[train_idx]
+    x_test = x_train_cv[test_idx]
+    y_test = y_train_cv[test_idx]
 
     obs = sps.csr_matrix((np.ones(len(y_train)), (x_train[:, 0]-1, x_train[:, 1]-1)), shape=(num_users, num_items), dtype=np.float32).toarray().reshape(-1)
     y_entire = sps.csr_matrix((y_train, (x_train[:, 0]-1, x_train[:, 1]-1)), shape=(num_users, num_items), dtype=np.float32).toarray().reshape(-1)
