@@ -12,6 +12,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from module.dataset import generate_total_sample
 from module.model import MF
+from module.utils import set_seed
 
 
 def sigmoid(x):
@@ -19,11 +20,11 @@ def sigmoid(x):
 
 #%%
 # n_factors_list = [4, 8, 16]
-n_factors_list = [16]
+n_factors_list = [20]
 # n_items_list = [20, 60]
-n_items_list = [60]
+n_items_list = [8]
 # n_samples_list = [100, 1000]
-n_samples_list = [1000]
+n_samples_list = [100]
 treat_bias = 0.
 lr = 1e-2
 repeat_num = 30
@@ -49,8 +50,7 @@ for n_samples in n_samples_list:
 
             T_list, mle_auc_list, ipw_auc_list = [], [], []
             for random_seed in range(1, repeat_num+1):
-                np.random.seed(random_seed)
-                torch.manual_seed(random_seed)
+                set_seed(random_seed)
 
                 Z_treat = np.random.normal(0, 1, (n_items, n_factors))
                 Lambda_treat = np.random.uniform(0., 1., (n_samples, n_factors))
