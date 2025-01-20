@@ -1,43 +1,39 @@
 #%%
+import os
+import sys
 import torch
 import numpy as np
 import torch.nn as nn
+import scipy.sparse as sps
 import torch.nn.functional as F
 from sklearn.metrics import roc_curve, auc
 
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-class MF(nn.Module):
-    """The neural collaborative filtering method.
-    """
-    def __init__(self, num_users, num_items, embedding_k):
-        super(MF, self).__init__()
-        self.num_users = num_users
-        self.num_items = num_items
-        self.embedding_k = embedding_k
-        self.user_embedding = nn.Embedding(self.num_users, self.embedding_k)
-        self.item_embedding = nn.Embedding(self.num_items, self.embedding_k)
-
-    def forward(self, x):
-        user_idx = x[:,0]
-        item_idx = x[:,1]
-        user_embed = self.user_embedding(user_idx)
-        item_embed = self.item_embedding(item_idx)
-        out = torch.sum(user_embed.mul(item_embed), 1).unsqueeze(-1)
-
-        return out, user_embed, item_embed
+from module.dataset import generate_total_sample
+from module.model import MF
+from module.utils import set_seed
 
 
 def sigmoid(x):
     return 1 / (1 + np.exp(-x))
 
 #%%
-treatment_effect = 1.
-treat_bias_list = [0, -1.9, -3.6, -4.8, -6.5]
+n_factors = 16
+n_items = 60
+n_samples = 1000
+# treat_bias_list = [-1.9, -3.6]
+treat_bias_list = [-4.8, -6.5]
+lr = 1e-2
 repeat_num = 30
 num_epochs = 500
 batch_size = 512
-mle = torch.nn.BCELoss()
-ipw = lambda x, y, z: F.binary_cross_entropy(x, y, z)
+embedding_k = 8
+# effect = "spurious"
+effect = "independent"
+
+mle = torch.nn.BCELoss(reduction="none")
+ipw = lambda x, y, z: F.binary_cross_entropy(x, y, z, reduction="none")
 
 if torch.cuda.is_available():
     device = "cuda"
@@ -45,24 +41,31 @@ elif torch.backends.mps.is_available():
     device = "mps"
 else: 
     device = "cpu"
-n_samples = 1000
-n_items = 60
-n_factors = 16
 
 for treat_bias in treat_bias_list:
     T_list, mle_auc_list, ipw_auc_list = [], [], []
     for random_seed in range(1, repeat_num+1):
-        np.random.seed(random_seed)
-        torch.manual_seed(random_seed)
+        set_seed(random_seed)
 
-        Z = np.random.normal(0, 1, (n_items, n_factors))
-        Lambda = np.random.uniform(0., 1., (n_samples, n_factors))
+        Z_treat = np.random.normal(0, 1, (n_items, n_factors))
+        Lambda_treat = np.random.uniform(0., 1., (n_samples, n_factors))
 
-        prob_t_real = sigmoid(Lambda @ Z.T + np.random.normal(0, 0.1, (n_samples, n_items)) + treat_bias)
+        logit_t_real = Lambda_treat @ Z_treat.T + np.random.normal(0, 0.1, (n_samples, n_items)) + treat_bias
+        prob_t_real = sigmoid(logit_t_real)
         T_real = np.random.binomial(1, prob_t_real)
         T_list.append(T_real.mean())
-        prob_y1 = sigmoid(Lambda @ Z.T + np.random.normal(0, 0.1, (n_samples, n_items)) + treatment_effect)
-        prob_y0 = sigmoid(Lambda @ Z.T + np.random.normal(0, 0.1, (n_samples, n_items)))
+
+        if effect == "spurious":
+            treatment_effect = logit_t_real
+        elif effect == "independent":
+            Z_effect = np.random.normal(0, 1, (n_items, n_factors))
+            Lambda_effect = np.random.uniform(0., 1., (n_samples, n_factors))
+            treatment_effect = Lambda_effect @ Z_effect.T + np.random.normal(0, 0.1, (n_samples, n_items))
+
+        Z_interact = np.random.normal(0, 1, (n_items, n_factors))
+        Lambda_interact = np.random.uniform(0., 1., (n_samples, n_factors))
+        prob_y1 = sigmoid(Lambda_interact @ Z_interact.T + np.random.normal(0, 0.1, (n_samples, n_items)) + treatment_effect)
+        prob_y0 = sigmoid(Lambda_interact @ Z_interact.T + np.random.normal(0, 0.1, (n_samples, n_items)))
 
         Y1 = np.random.binomial(1, prob_y1)
         Y0 = np.random.binomial(1, prob_y0)
@@ -72,34 +75,43 @@ for treat_bias in treat_bias_list:
         user_idx, item_idx = np.where(T_real==1)
         x_train = np.concatenate([[user_idx],[item_idx]]).T
         ps_train = prob_t_real[T_real==1]
-        num_samples = len(x_train)
 
-        total_batch = num_samples // batch_size
         Y_test = Y1.reshape(-1)
         user_idx, item_idx = np.meshgrid(np.arange(n_samples), np.arange(n_items))
         x_test = np.concatenate([[user_idx, item_idx]]).T.reshape(-1, 2)
 
+        obs = sps.csr_matrix((np.ones(len(Y_train)), (x_train[:, 0], x_train[:, 1])), shape=(n_samples, n_items), dtype=np.float32).toarray().reshape(-1)
+        y_entire = sps.csr_matrix((Y_train, (x_train[:, 0], x_train[:, 1])), shape=(n_samples, n_items), dtype=np.float32).toarray().reshape(-1)
+        ps_entire = sps.csr_matrix((ps_train, (x_train[:, 0], x_train[:, 1])), shape=(n_samples, n_items), dtype=np.float32).toarray().reshape(-1)
+        x_all = generate_total_sample(n_samples, n_items)
+
+        num_samples = len(x_all)
+        total_batch = num_samples // batch_size
+
         """mle simulation"""
-        model = MF(n_samples, n_items, n_factors)
+        model = MF(n_samples, n_items, embedding_k)
         model = model.to("mps")
-        optimizer = torch.optim.Adam(model.parameters(), lr=1e-2)
+        optimizer = torch.optim.Adam(model.parameters(), lr=lr)
 
         for epoch in range(1, num_epochs+1):
-            all_idx = np.arange(num_samples)
-            np.random.shuffle(all_idx)
+            ul_idxs = np.arange(x_all.shape[0]) # all
+            np.random.shuffle(ul_idxs)
             model.train()
 
             epoch_total_loss = 0.
             for idx in range(total_batch):
-                selected_idx = all_idx[batch_size*idx:(idx+1)*batch_size]
-                sub_x = x_train[selected_idx]
+                selected_idx = ul_idxs[batch_size*idx:(idx+1)*batch_size]
+                sub_x = x_all[selected_idx]
                 sub_x = torch.LongTensor(sub_x).to(device)
-                sub_y = Y_train[selected_idx]
+                sub_y = y_entire[selected_idx]
                 sub_y = torch.Tensor(sub_y).unsqueeze(-1).to(device)
+                sub_t = obs[selected_idx]
+                sub_t = torch.Tensor(sub_t).unsqueeze(-1).to(device)
 
                 pred, user_embed, item_embed = model(sub_x)
 
                 rec_loss = mle(torch.nn.Sigmoid()(pred), sub_y)
+                rec_loss = (rec_loss * sub_t).mean()
                 total_loss = rec_loss
                 epoch_total_loss += total_loss
 
@@ -118,27 +130,30 @@ for treat_bias in treat_bias_list:
 
 
         """ipw simulation"""
-        model = MF(n_samples, n_items, n_factors)
+        model = MF(n_samples, n_items, embedding_k)
         model = model.to(device)
-        optimizer = torch.optim.Adam(model.parameters(), lr=1e-2)
+        optimizer = torch.optim.Adam(model.parameters(), lr=lr)
 
         for epoch in range(1, num_epochs+1):
-            all_idx = np.arange(num_samples)
-            np.random.shuffle(all_idx)
+            ul_idxs = np.arange(x_all.shape[0]) # all
+            np.random.shuffle(ul_idxs)
             model.train()
 
             epoch_total_loss = 0.
             for idx in range(total_batch):
-                selected_idx = all_idx[batch_size*idx:(idx+1)*batch_size]
-                sub_x = x_train[selected_idx]
+                selected_idx = ul_idxs[batch_size*idx:(idx+1)*batch_size]
+                sub_x = x_all[selected_idx]
                 sub_x = torch.LongTensor(sub_x).to(device)
-                sub_y = Y_train[selected_idx]
+                sub_y = y_entire[selected_idx]
                 sub_y = torch.Tensor(sub_y).unsqueeze(-1).to(device)
-                sub_ps = ps_train[selected_idx]
+                sub_t = obs[selected_idx]
+                sub_t = torch.Tensor(sub_t).unsqueeze(-1).to(device)
+                sub_ps = ps_entire[selected_idx]
                 sub_ps = torch.Tensor(sub_ps).unsqueeze(-1).to(device)
 
                 pred, user_embed, item_embed = model(sub_x)
-                rec_loss = ipw(torch.nn.Sigmoid()(pred), sub_y, 1/sub_ps)
+                rec_loss = ipw(torch.nn.Sigmoid()(pred), sub_y, 1/(sub_ps+1e-9))
+                rec_loss = (rec_loss * sub_t).mean()
                 total_loss = rec_loss
                 epoch_total_loss += total_loss
 
@@ -155,8 +170,9 @@ for treat_bias in treat_bias_list:
         ipw_auc = auc(fpr, tpr)
         ipw_auc_list.append(ipw_auc)
 
+    print(effect)
+    print(treat_bias)
     print(f"{n_samples} users, {n_items} items, {n_factors} factors")
-    print(f"treat_bias : {treat_bias}")
     print(f"T_bar : {np.mean(T_list)}")
     print(np.mean(mle_auc_list))
     print(np.std(mle_auc_list))
