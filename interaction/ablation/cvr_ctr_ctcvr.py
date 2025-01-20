@@ -145,6 +145,7 @@ for seed in range(10):
         epoch_total_loss = 0.
         epoch_rec_loss = 0.
         epoch_ctr_loss = 0.
+        epoch_ctcvr_loss = 0.
 
         for idx in range(total_batch):
 
@@ -167,8 +168,9 @@ for seed in range(10):
             rec_loss = (rec_loss * sub_t).mean()
             epoch_rec_loss += rec_loss
             epoch_ctr_loss += ctr_loss
+            epoch_ctcvr_loss += ctcvr_loss
 
-            total_loss = rec_loss + ctr_loss
+            total_loss = rec_loss + ctr_loss + ctcvr_loss
             epoch_total_loss += total_loss
 
             optimizer.zero_grad()
