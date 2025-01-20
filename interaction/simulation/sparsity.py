@@ -22,8 +22,7 @@ def sigmoid(x):
 n_factors = 16
 n_items = 60
 n_samples = 1000
-# treat_bias_list = [-1.9, -3.6]
-treat_bias_list = [-4.8, -6.5]
+treat_bias_list = [-1.9, -3.6, -4.8, -6.5]
 lr = 1e-2
 repeat_num = 30
 num_epochs = 500
