@@ -19,20 +19,19 @@ def sigmoid(x):
     return 1 / (1 + np.exp(-x))
 
 #%%
-# n_factors_list = [4, 8, 16]
-n_factors_list = [20]
+n_factors_list = [4, 8, 16]
 # n_items_list = [20, 60]
-n_items_list = [8]
+n_items_list = [60]
 # n_samples_list = [100, 1000]
-n_samples_list = [100]
+n_samples_list = [1000]
 treat_bias = 0.
 lr = 1e-2
 repeat_num = 30
 num_epochs = 500
 batch_size = 512
 embedding_k = 8
-effect = "spurious"
-# effect = "independent"
+# effect = "spurious"
+effect = "independent"
 
 mle = torch.nn.BCELoss(reduction="none")
 ipw = lambda x, y, z: F.binary_cross_entropy(x, y, z, reduction="none")
@@ -175,6 +174,7 @@ for n_samples in n_samples_list:
                 ipw_auc = auc(fpr, tpr)
                 ipw_auc_list.append(ipw_auc)
 
+            print(effect)
             print(f"{n_samples} users, {n_items} items, {n_factors} factors")
             print(f"T_bar : {np.mean(T_list)}")
             print(np.mean(mle_auc_list))
