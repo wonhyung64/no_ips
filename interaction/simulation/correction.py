@@ -19,10 +19,10 @@ def sigmoid(x):
     return 1 / (1 + np.exp(-x))
 
 #%%
-# n_factors_list = [4, 8, 16]
-n_factors_list = [4,8,16]
-# n_items_list = [20, 60]
-n_items_list = [20,60]
+n_factors_list = [4, 8, 16]
+# n_factors_list = [4,8,16]
+n_items_list = [20, 60]
+# n_items_list = [20]
 # n_samples_list = [100, 1000]
 n_samples_list = [1000]
 treat_bias = 0.
@@ -35,7 +35,6 @@ embedding_k = 8
 effect = "independent"
 
 mle = torch.nn.BCELoss(reduction="none")
-ipw = lambda x, y, z: F.binary_cross_entropy(x, y, z, reduction="none")
 
 if torch.cuda.is_available():
     device = "cuda"
@@ -69,7 +68,6 @@ for n_samples in n_samples_list:
 
                 Z_interact = np.random.normal(0, 1, (n_items, n_factors))
                 Lambda_interact = np.random.uniform(0., 1., (n_samples, n_factors))
-                # prob_y1 = sigmoid(Lambda_interact @ Z_interact.T + np.random.normal(0, 0.1, (n_samples, n_items)) + treatment_effect)
                 prob_y1 = sigmoid(Lambda_interact @ Z_interact.T + np.random.normal(0, 0.1, (n_samples, n_items)) + nn.ReLU()(torch.tensor(treatment_effect)).numpy())
                 prob_y0 = sigmoid(Lambda_interact @ Z_interact.T + np.random.normal(0, 0.1, (n_samples, n_items)))
 
@@ -94,8 +92,35 @@ for n_samples in n_samples_list:
                 num_samples = len(x_all)
                 total_batch = num_samples // batch_size
 
+                ps_model = MF(n_samples, n_items, n_factors)
+                ps_model = ps_model.to("mps")
+                optimizer = torch.optim.Adam(ps_model.parameters(), lr=lr)
+
+                for epoch in range(1, num_epochs+1):
+                    ul_idxs = np.arange(x_all.shape[0]) # all
+                    np.random.shuffle(ul_idxs)
+                    ps_model.train()
+
+                    for idx in range(total_batch):
+                        selected_idx = ul_idxs[batch_size*idx:(idx+1)*batch_size]
+                        sub_x = x_all[selected_idx]
+                        sub_x = torch.LongTensor(sub_x).to(device)
+                        sub_t = obs[selected_idx]
+                        sub_t = torch.Tensor(sub_t).unsqueeze(-1).to(device)
+
+                        pred, user_embed, item_embed = ps_model(sub_x)
+                        pred = nn.ReLU()(pred)
+
+                        rec_loss = mle(torch.nn.Sigmoid()(pred), sub_t).mean()
+
+                        total_loss = rec_loss
+
+                        optimizer.zero_grad()
+                        total_loss.backward()
+                        optimizer.step()
+
                 """mle simulation"""
-                model = MF(n_samples, n_items, embedding_k)
+                model = MF(n_samples, n_items, n_factors*2)
                 model = model.to("mps")
                 optimizer = torch.optim.Adam(model.parameters(), lr=lr)
 
@@ -104,83 +129,40 @@ for n_samples in n_samples_list:
                     np.random.shuffle(ul_idxs)
                     model.train()
 
-                    epoch_total_loss = 0.
                     for idx in range(total_batch):
                         selected_idx = ul_idxs[batch_size*idx:(idx+1)*batch_size]
                         sub_x = x_all[selected_idx]
                         sub_x = torch.LongTensor(sub_x).to(device)
                         sub_y = y_entire[selected_idx]
                         sub_y = torch.Tensor(sub_y).unsqueeze(-1).to(device)
-                        sub_t = obs[selected_idx]
-                        sub_t = torch.Tensor(sub_t).unsqueeze(-1).to(device)
 
                         pred, user_embed, item_embed = model(sub_x)
+                        ps_pred, _, __ = ps_model(sub_x)
+                        ps_pred = nn.ReLU()(ps_pred)
 
-                        rec_loss = mle(torch.nn.Sigmoid()(pred), sub_y)
-                        rec_loss = (rec_loss * sub_t).mean()
+                        rec_loss = mle(torch.nn.Sigmoid()(pred + ps_pred.detach()), sub_y).mean()
                         total_loss = rec_loss
-                        epoch_total_loss += total_loss
 
                         optimizer.zero_grad()
                         total_loss.backward()
                         optimizer.step()
 
                 model.eval()
+                ps_model.eval()
                 sub_x = torch.LongTensor(x_test).to(device)
                 pred_, _, __ = model(sub_x)
-                pred = nn.Sigmoid()(pred_).detach().cpu().numpy()
+                ps_pred, _, __ = ps_model(sub_x)
+                ps_pred = nn.ReLU()(ps_pred)
+                pred = nn.Sigmoid()(pred_ + ps_pred).detach().cpu().numpy()
 
                 fpr, tpr, thresholds = roc_curve(Y_test, pred, pos_label=1)
                 mle_auc = auc(fpr, tpr)
                 mle_auc_list.append(mle_auc)
 
 
-                """ipw simulation"""
-                model = MF(n_samples, n_items, embedding_k)
-                model = model.to(device)
-                optimizer = torch.optim.Adam(model.parameters(), lr=lr)
-
-                for epoch in range(1, num_epochs+1):
-                    ul_idxs = np.arange(x_all.shape[0]) # all
-                    np.random.shuffle(ul_idxs)
-                    model.train()
-
-                    epoch_total_loss = 0.
-                    for idx in range(total_batch):
-                        selected_idx = ul_idxs[batch_size*idx:(idx+1)*batch_size]
-                        sub_x = x_all[selected_idx]
-                        sub_x = torch.LongTensor(sub_x).to(device)
-                        sub_y = y_entire[selected_idx]
-                        sub_y = torch.Tensor(sub_y).unsqueeze(-1).to(device)
-                        sub_t = obs[selected_idx]
-                        sub_t = torch.Tensor(sub_t).unsqueeze(-1).to(device)
-                        sub_ps = ps_entire[selected_idx]
-                        sub_ps = torch.Tensor(sub_ps).unsqueeze(-1).to(device)
-
-                        pred, user_embed, item_embed = model(sub_x)
-                        rec_loss = ipw(torch.nn.Sigmoid()(pred), sub_y, 1/(sub_ps+1e-9))
-                        rec_loss = (rec_loss * sub_t).mean()
-                        total_loss = rec_loss
-                        epoch_total_loss += total_loss
-
-                        optimizer.zero_grad()
-                        total_loss.backward()
-                        optimizer.step()
-
-                model.eval()
-                sub_x = torch.LongTensor(x_test).to(device)
-                pred_, _, __ = model(sub_x)
-                pred = nn.Sigmoid()(pred_).detach().cpu().numpy()
-
-                fpr, tpr, thresholds = roc_curve(Y_test, pred, pos_label=1)
-                ipw_auc = auc(fpr, tpr)
-                ipw_auc_list.append(ipw_auc)
-
             print(effect)
             print(f"{n_samples} users, {n_items} items, {n_factors} factors")
             print(f"T_bar : {np.mean(T_list)}")
             print(np.mean(mle_auc_list))
             print(np.std(mle_auc_list))
-            print(np.mean(ipw_auc_list))
-            print(np.std(ipw_auc_list))
             print()
