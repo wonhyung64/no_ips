@@ -174,7 +174,7 @@ for cv_num, (train_idx, test_idx) in enumerate(kf.split(x_train)):
             x_test_tensor = torch.LongTensor(x_test-1).to(device)
             pred_, _, __ = model(x_test_tensor)
             pred = nn.Sigmoid()(pred_).flatten().cpu().detach().numpy()
-            auc = roc_auc_score(y_test, pred)
+            auc = roc_auc_score(obs_test, pred)
 
             wandb_var.log({"auc": auc})
 
