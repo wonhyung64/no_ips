@@ -9,7 +9,7 @@ from datetime import datetime
 import torch.nn.functional as F
 from sklearn.metrics import roc_auc_score
 
-from module.model import MF
+from module.model import NCF
 from module.metric import ndcg_func, recall_func, ap_func
 from module.dataset import binarize, load_data, generate_total_sample
 from module.utils import set_seed, set_device
@@ -70,7 +70,7 @@ device = set_device()
 configs = vars(args)
 configs["device"] = device
 wandb_var = wandb.init(project="no_ips", config=configs)
-wandb.run.name = f"snips_test_{expt_num}"
+wandb.run.name = f"main_snips_{expt_num}"
 
 
 # DATA LOADER
@@ -93,7 +93,7 @@ x_all = generate_total_sample(num_users, num_items)
 num_samples = len(x_all)
 total_batch = num_samples // batch_size
 
-ps_model = MF(num_users, num_items, 4)
+ps_model = NCF(num_users, num_items, embedding_k)
 ps_model = ps_model.to(device)
 optimizer = torch.optim.Adam(ps_model.parameters(), lr=1e-2, weight_decay=1e-4)
 loss_fcn = torch.nn.BCELoss()
@@ -131,7 +131,7 @@ for epoch in range(1, num_epochs+1):
     wandb_var.log(loss_dict)
 
 # TRAIN
-model = MF(num_users, num_items, embedding_k)
+model = NCF(num_users, num_items, embedding_k)
 model = model.to(device)
 optimizer = torch.optim.Adam(model.parameters(), lr=lr, weight_decay=weight_decay)
 loss_fcn = lambda x, y, z: F.binary_cross_entropy(x, y, z, reduction="none")

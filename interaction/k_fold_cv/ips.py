@@ -13,7 +13,7 @@ from sklearn.model_selection import KFold
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from module.model import MF
+from module.model import NCF
 from module.metric import ndcg_func, recall_func, ap_func
 from module.utils import set_seed, set_device
 from module.dataset import binarize, load_data, generate_total_sample
@@ -77,7 +77,7 @@ for cv_num, (train_idx, test_idx) in enumerate(kf.split(x_train)):
     configs["device"] = device
     configs["cv_num"] = cv_num
     wandb_var = wandb.init(project="no_ips", config=configs)
-    wandb.run.name = f"cv_ips_test_{expt_num}"
+    wandb.run.name = f"cv_main_ips_{expt_num}"
 
     x_train = x_train_cv[train_idx]
     y_train = y_train_cv[train_idx]
@@ -91,7 +91,7 @@ for cv_num, (train_idx, test_idx) in enumerate(kf.split(x_train)):
     num_samples = len(x_all)
     total_batch = num_samples // batch_size
 
-    ps_model = MF(num_users, num_items, 4)
+    ps_model = NCF(num_users, num_items, embedding_k)
     ps_model = ps_model.to(device)
     optimizer = torch.optim.Adam(ps_model.parameters(), lr=1e-2, weight_decay=1e-4)
     loss_fcn = torch.nn.BCELoss()
@@ -130,7 +130,7 @@ for cv_num, (train_idx, test_idx) in enumerate(kf.split(x_train)):
 
 
     # TRAIN
-    model = MF(num_users, num_items, embedding_k)
+    model = NCF(num_users, num_items, embedding_k)
     model = model.to(device)
     optimizer = torch.optim.Adam(model.parameters(), lr=lr, weight_decay=weight_decay)
     loss_fcn = lambda x, y, z: F.binary_cross_entropy(x, y, z, reduction="none")

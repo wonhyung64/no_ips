@@ -79,7 +79,7 @@ for seed in range(10):
     configs = vars(args)
     configs["device"] = device
     wandb_var = wandb.init(project="no_ips", config=configs)
-    wandb.run.name = f"escm2_ips_{expt_num}"
+    wandb.run.name = f"main_escm2_ips_{expt_num}"
 
 
     # DATA LOADER

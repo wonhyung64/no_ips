@@ -8,7 +8,7 @@ import scipy.sparse as sps
 from datetime import datetime
 from sklearn.metrics import roc_auc_score
 
-from module.model import MF
+from module.model import NCF
 from module.metric import ndcg_func, recall_func, ap_func
 from module.dataset import binarize, load_data, generate_total_sample
 from module.utils import set_device, set_seed
@@ -68,7 +68,7 @@ for seed in range(10):
     configs = vars(args)
     configs["device"] = device
     wandb_var = wandb.init(project="no_ips", config=configs)
-    wandb.run.name = f"mle_test_{expt_num}"
+    wandb.run.name = f"main_mle_{expt_num}"
 
 
     # DATA LOADER

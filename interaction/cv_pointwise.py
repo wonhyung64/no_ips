@@ -14,6 +14,12 @@ from sklearn.model_selection import KFold
 from module.dataset import binarize, load_data, generate_total_sample
 from module.utils import set_device, set_seed
 
+try:
+    import wandb
+except: 
+    subprocess.check_call([sys.executable, "-m", "pip", "install", "wandb"])
+    import wandb
+
 
 class NCF(nn.Module):
     """The neural collaborative filtering method.
@@ -47,7 +53,6 @@ class NCF(nn.Module):
 
 #%%
 # SETTINGS
-model_dir = f"./assets/selection_model"
 parser = argparse.ArgumentParser()
 
 """coat"""
@@ -89,6 +94,7 @@ expt_num = f'{datetime.now().strftime("%y%m%d_%H%M%S_%f")}'
 set_seed(random_seed)
 device = set_device()
 
+
 # DATA LOADER
 x_train, _ = load_data(data_dir, dataset_name)
 x_train, y_train = x_train[:,:-1], x_train[:,-1]
@@ -101,48 +107,75 @@ print(f"# user: {num_users}, # item: {num_items}")
 obs = sps.csr_matrix((np.ones(len(y_train)), (x_train[:, 0]-1, x_train[:, 1]-1)), shape=(num_users, num_items), dtype=np.float32).toarray().reshape(-1)
 x_all = generate_total_sample(num_users, num_items)
 
-num_samples = len(x_all)
-total_batch = num_samples // batch_size
+kf = KFold(n_splits=4, shuffle=True, random_state=random_seed)
+for cv_num, (train_idx, test_idx) in enumerate(kf.split(x_all)):
 
-# TRAIN
-model = NCF(num_users, num_items, embedding_k)
-model = model.to(device)
-optimizer = torch.optim.Adam(model.parameters(), lr=lr, weight_decay=weight_decay)
-loss_fcn = torch.nn.BCELoss(reduction="none")
+    configs = vars(args)
+    configs["device"] = device
+    configs["cv_num"] = cv_num
+    wandb_var = wandb.init(project="no_ips", config=configs)
+    wandb.run.name = f"cv_pointwise_{expt_num}"
 
-for epoch in range(1, num_epochs+1):
-    ul_idxs = np.arange(x_all.shape[0])
-    np.random.shuffle(ul_idxs)
-    model.train()
+    x_all_train = x_all[train_idx]
+    obs_train = obs[train_idx]
+    x_all_test = x_all[test_idx]
+    obs_test = obs[test_idx]
 
-    epoch_total_loss = 0.
-    epoch_point_loss = 0.
+    num_samples = len(x_all_train)
+    total_batch = num_samples // batch_size
 
-    for idx in range(total_batch):
+    # TRAIN
+    model = NCF(num_users, num_items, embedding_k)
+    model = model.to(device)
+    optimizer = torch.optim.Adam(model.parameters(), lr=lr, weight_decay=weight_decay)
+    loss_fcn = torch.nn.BCELoss(reduction="none")
 
-        selected_idx = ul_idxs[batch_size*idx:(idx+1)*batch_size]
-        sub_x = x_all[selected_idx]
-        sub_x = torch.LongTensor(sub_x).to(device)
-        sub_t = obs[selected_idx]
-        sub_t = torch.Tensor(sub_t).unsqueeze(-1).to(device)
+    for epoch in range(1, num_epochs+1):
+        ul_idxs = np.arange(x_all_train.shape[0])
+        np.random.shuffle(ul_idxs)
+        model.train()
 
-        pred, user_embed, item_embed = model(sub_x)
+        epoch_total_loss = 0.
+        epoch_point_loss = 0.
 
-        point_loss = loss_fcn(torch.nn.Sigmoid()(pred), sub_t).mean()
-        epoch_point_loss += point_loss
+        for idx in range(total_batch):
 
-        total_loss = point_loss
-        epoch_total_loss += total_loss
+            selected_idx = ul_idxs[batch_size*idx:(idx+1)*batch_size]
+            sub_x = x_all_train[selected_idx]
+            sub_x = torch.LongTensor(sub_x).to(device)
+            sub_t = obs_train[selected_idx]
+            sub_t = torch.Tensor(sub_t).unsqueeze(-1).to(device)
 
-        optimizer.zero_grad()
-        total_loss.backward()
-        optimizer.step()
+            pred, user_embed, item_embed = model(sub_x)
 
-    print(f"[Epoch {epoch:>4d} Train Loss] rec: {epoch_total_loss.item():.4f}")
+            point_loss = loss_fcn(torch.nn.Sigmoid()(pred), sub_t).mean()
+            epoch_point_loss += point_loss
 
-torch.save({"model_state_dict": model.state_dict(),
-            "optimizer_state_dict": optimizer.state_dict()}, f"{model_dir}/pointwise.pth")
+            total_loss = point_loss
+            epoch_total_loss += total_loss
 
-# %%
-# checkpoint = torch.load(f"{model_dir}/pointwise.pth")
-# model.load_state_dict(checkpoint["model_state_dict"])
+            optimizer.zero_grad()
+            total_loss.backward()
+            optimizer.step()
+
+        print(f"[Epoch {epoch:>4d} Train Loss] rec: {epoch_total_loss.item():.4f}")
+
+        loss_dict: dict = {
+            'epoch_point_loss': float(epoch_point_loss.item()),
+            'epoch_total_loss': float(epoch_total_loss.item()),
+        }
+
+        wandb_var.log(loss_dict)
+
+        if epoch % evaluate_interval == 0:
+            model.eval()
+            x_test_tensor = torch.LongTensor(x_all_test).to(device)
+            pred_, _, __ = model(x_test_tensor)
+            pred = nn.Sigmoid()(pred_).flatten().cpu().detach().numpy()
+            auc = roc_auc_score(obs_test, pred)
+
+            wandb_var.log({"auc": auc})
+
+    print(f"AUC: {auc}")
+
+    wandb.finish()

@@ -86,10 +86,10 @@ class NCF1(nn.Module):
         return out, user_embed, item_embed
 
 
-class ESMM2(nn.Module):
+class _ESMM(nn.Module):
     """ESMM"""
     def __init__(self, num_users, num_items, embedding_k):
-        super(ESMM2, self).__init__()
+        super(_ESMM, self).__init__()
         self.num_users = num_users
         self.num_items = num_items
         self.embedding_k = embedding_k
@@ -164,10 +164,10 @@ class ESMM(nn.Module):
         return cvr, ctr, ctcvr
 
 
-class MultiIps(nn.Module):
+class _MultiIps(nn.Module):
     """Multi-task IPS"""
     def __init__(self, num_users, num_items, embedding_k):
-        super(MultiIps, self).__init__()
+        super(_MultiIps, self).__init__()
         self.num_users = num_users
         self.num_items = num_items
         self.embedding_k = embedding_k
@@ -208,10 +208,40 @@ class MultiIps(nn.Module):
         return out_cvr, out_ctr
 
 
-class ESCM2Ips(nn.Module):
+class MultiIps(nn.Module):
+    def __init__(self, num_users, num_items, embedding_k):
+        super(MultiIps, self).__init__()
+        self.num_users = num_users
+        self.num_items = num_items
+        self.embedding_k = embedding_k
+        self.user_embedding = nn.Embedding(self.num_users, self.embedding_k)
+        self.item_embedding = nn.Embedding(self.num_items, self.embedding_k)
+        self.ctr = nn.Sequential(
+            nn.Linear(self.embedding_k*2, self.embedding_k),
+            nn.ReLU(),
+            nn.Linear(self.embedding_k, 1, bias=False),
+        )
+        self.cvr = nn.Sequential(
+            nn.Linear(self.embedding_k*2, self.embedding_k),
+            nn.ReLU(),
+            nn.Linear(self.embedding_k, 1, bias=False),
+        )
+
+    def forward(self, x):
+        user_idx = x[:,0]
+        item_idx = x[:,1]
+        user_embed = self.user_embedding(user_idx)
+        item_embed = self.item_embedding(item_idx)
+        z_embed = torch.cat([user_embed, item_embed], axis=1)
+        ctr = self.ctr(z_embed)
+        cvr = self.cvr(z_embed)
+        return cvr, ctr
+
+
+class _ESCM2Ips(nn.Module):
     """ESMM"""
     def __init__(self, num_users, num_items, embedding_k):
-        super(ESCM2Ips, self).__init__()
+        super(_ESCM2Ips, self).__init__()
         self.num_users = num_users
         self.num_items = num_items
         self.embedding_k = embedding_k
@@ -251,6 +281,38 @@ class ESCM2Ips(nn.Module):
         out_ctcvr = torch.mul(nn.Sigmoid()(out_ctr), nn.Sigmoid()(out_cvr))
 
         return out_cvr, out_ctr, out_ctcvr
+
+
+class ESCM2Ips(nn.Module):
+    def __init__(self, num_users, num_items, embedding_k):
+        super(ESCM2Ips, self).__init__()
+        self.num_users = num_users
+        self.num_items = num_items
+        self.embedding_k = embedding_k
+        self.user_embedding = nn.Embedding(self.num_users, self.embedding_k)
+        self.item_embedding = nn.Embedding(self.num_items, self.embedding_k)
+        self.ctr = nn.Sequential(
+            nn.Linear(self.embedding_k*2, self.embedding_k),
+            nn.ReLU(),
+            nn.Linear(self.embedding_k, 1, bias=False),
+        )
+        self.cvr = nn.Sequential(
+            nn.Linear(self.embedding_k*2, self.embedding_k),
+            nn.ReLU(),
+            nn.Linear(self.embedding_k, 1, bias=False),
+        )
+
+    def forward(self, x):
+        user_idx = x[:,0]
+        item_idx = x[:,1]
+        user_embed = self.user_embedding(user_idx)
+        item_embed = self.item_embedding(item_idx)
+        z_embed = torch.cat([user_embed, item_embed], axis=1)
+        ctr = self.ctr(z_embed)
+        cvr = self.cvr(z_embed)
+        ctcvr = torch.mul(nn.Sigmoid()(ctr), nn.Sigmoid()(cvr))
+
+        return cvr, ctr, ctcvr
 
 
 class MF_AKBIPS_Exp(nn.Module):

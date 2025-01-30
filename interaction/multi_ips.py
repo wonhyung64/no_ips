@@ -75,7 +75,7 @@ for seed in range(10):
     configs = vars(args)
     configs["device"] = device
     wandb_var = wandb.init(project="no_ips", config=configs)
-    wandb.run.name = f"multi_ips_{expt_num}"
+    wandb.run.name = f"main_multi_ips_{expt_num}"
 
     # DATA LOADER
     x_train, x_test = load_data(data_dir, dataset_name)
