@@ -92,7 +92,7 @@ for seed in range(10):
     total_batch = num_samples // batch_size
 
     # TRAIN
-    model = MF(num_users, num_items, embedding_k)
+    model = NCF(num_users, num_items, embedding_k)
     model = model.to(device)
     optimizer = torch.optim.Adam(model.parameters(), lr=lr, weight_decay=weight_decay)
     loss_fcn = torch.nn.BCELoss(reduction="none")
