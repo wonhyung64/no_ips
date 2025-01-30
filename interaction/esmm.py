@@ -76,7 +76,7 @@ device = set_device()
 configs = vars(args)
 configs["device"] = device
 wandb_var = wandb.init(project="no_ips", config=configs)
-wandb.run.name = f"esmm_{expt_num}"
+wandb.run.name = f"main_esmm_{expt_num}"
 
 
 # DATA LOADER

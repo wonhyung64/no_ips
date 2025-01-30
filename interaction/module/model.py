@@ -89,7 +89,7 @@ class NCF1(nn.Module):
 class ESMM2(nn.Module):
     """ESMM"""
     def __init__(self, num_users, num_items, embedding_k):
-        super(ESMM, self).__init__()
+        super(ESMM2, self).__init__()
         self.num_users = num_users
         self.num_items = num_items
         self.embedding_k = embedding_k
@@ -135,7 +135,7 @@ class ESMM(nn.Module):
     """The neural collaborative filtering method.
     """
     def __init__(self, num_users, num_items, embedding_k):
-        super(NCF, self).__init__()
+        super(ESMM, self).__init__()
         self.num_users = num_users
         self.num_items = num_items
         self.embedding_k = embedding_k
