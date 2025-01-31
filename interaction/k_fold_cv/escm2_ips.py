@@ -14,7 +14,7 @@ from sklearn.model_selection import KFold
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from module.model import ESCM2Ips
+from module.model import SharedNCF
 from module.metric import ndcg_func, recall_func, ap_func
 from module.utils import set_seed, set_device
 from module.dataset import binarize, generate_total_sample, load_data
@@ -100,7 +100,7 @@ for cv_num, (train_idx, test_idx) in enumerate(kf.split(x_train)):
     total_batch = num_samples // batch_size
 
     # TRAIN
-    model = ESCM2Ips(num_users, num_items, embedding_k)
+    model = SharedNCF(num_users, num_items, embedding_k)
     model = model.to(device)
     optimizer = torch.optim.Adam(model.parameters(), lr=lr, weight_decay=weight_decay)
     loss_fcn = torch.nn.BCELoss()
