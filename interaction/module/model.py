@@ -17,7 +17,6 @@ class MF(nn.Module):
         user_embed = self.user_embedding(user_idx)
         item_embed = self.item_embedding(item_idx)
         out = torch.sum(user_embed.mul(item_embed), 1).unsqueeze(-1)
-
         return out, user_embed, item_embed
 
 
@@ -29,16 +28,8 @@ class NCF(nn.Module):
         self.embedding_k = embedding_k
         self.user_embedding = nn.Embedding(self.num_users, self.embedding_k)
         self.item_embedding = nn.Embedding(self.num_items, self.embedding_k)
-        self.ctr = nn.Sequential(
-            nn.Linear(self.embedding_k*2, self.embedding_k),
-            nn.ReLU(),
-            nn.Linear(self.embedding_k, 1, bias=False),
-        )
-        self.cvr = nn.Sequential(
-            nn.Linear(self.embedding_k*2, self.embedding_k),
-            nn.ReLU(),
-            nn.Linear(self.embedding_k, 1, bias=False),
-        )
+        self.linear1 = nn.Linear(self.embedding_k*2, self.embedding_k)
+        self.linear2 = nn.Linear(self.embedding_k, 1, bias=False)
 
     def forward(self, x):
         user_idx = x[:,0]
@@ -46,28 +37,16 @@ class NCF(nn.Module):
         user_embed = self.user_embedding(user_idx)
         item_embed = self.item_embedding(item_idx)
         z_embed = torch.cat([user_embed, item_embed], axis=1)
-        ctr = self.ctr(z_embed)
-        cvr = self.cvr(z_embed)
-        return ctr, cvr
+        h1 = nn.ReLU()(self.linear1(z_embed))
+        out = self.linear2(h1)
+        return out, user_embed, item_embed
 
 
-class IpsV2(nn.Module):
-    def __init__(self, num_users, num_items, embedding_k=4, *args, **kwargs):
-        super().__init__()
-        self.num_users = num_users
-        self.num_items = num_items
-        self.embedding_k = embedding_k
-        self.prediction_model = MF(
-            num_users = self.num_users, num_items = self.num_items, embedding_k=self.embedding_k, *args, **kwargs)       
-        self.propensity_model = NCF1(
-            num_users = self.num_users, num_items = self.num_items, embedding_k=self.embedding_k, *args, **kwargs)
-
-
-class NCF1(nn.Module):
+class LinearCF(nn.Module):
     """The neural collaborative filtering method.
     """
     def __init__(self, num_users, num_items, embedding_k):
-        super(NCF1, self).__init__()
+        super(LinearCF, self).__init__()
         self.num_users = num_users
         self.num_items = num_items
         self.embedding_k = embedding_k
@@ -82,60 +61,14 @@ class NCF1(nn.Module):
         item_embed = self.item_embedding(item_idx)
         z_embed = torch.cat([user_embed, item_embed], axis=1)
         out = self.linear_1(z_embed)
-
         return out, user_embed, item_embed
 
 
-class _ESMM(nn.Module):
-    """ESMM"""
-    def __init__(self, num_users, num_items, embedding_k):
-        super(_ESMM, self).__init__()
-        self.num_users = num_users
-        self.num_items = num_items
-        self.embedding_k = embedding_k
-        self.user_embedding = nn.Embedding(self.num_users, self.embedding_k)
-        self.item_embedding = nn.Embedding(self.num_items, self.embedding_k)
-        self.ctr = nn.Sequential(
-            nn.Linear(in_features=self.embedding_k*2, out_features=360),
-            nn.ReLU(),
-            nn.Linear(in_features=360, out_features=200),
-            nn.ReLU(),
-            nn.Linear(in_features=200, out_features=80),
-            nn.ReLU(),
-            nn.Linear(in_features=80, out_features=2),
-            nn.ReLU(),
-            nn.Linear(in_features=2, out_features=1),
-        )
-        self.cvr = nn.Sequential(
-            nn.Linear(in_features=self.embedding_k*2, out_features=360),
-            nn.ReLU(),
-            nn.Linear(in_features=360, out_features=200),
-            nn.ReLU(),
-            nn.Linear(in_features=200, out_features=80),
-            nn.ReLU(),
-            nn.Linear(in_features=80, out_features=2),
-            nn.ReLU(),
-            nn.Linear(in_features=2, out_features=1),
-        )
-
-    def forward(self, x):
-        user_idx = x[:,0]
-        item_idx = x[:,1]
-        user_embed = self.user_embedding(user_idx)
-        item_embed = self.item_embedding(item_idx)
-        z_embed = torch.cat([user_embed, item_embed], axis=1)
-        out_cvr = self.cvr(z_embed)
-        out_ctr = self.ctr(z_embed)
-        out_ctcvr = torch.mul(nn.Sigmoid()(out_ctr), nn.Sigmoid()(out_cvr))
-
-        return out_cvr, out_ctr, out_ctcvr
-
-
-class ESMM(nn.Module):
+class SharedNCF(nn.Module):
     """The neural collaborative filtering method.
     """
     def __init__(self, num_users, num_items, embedding_k):
-        super(ESMM, self).__init__()
+        super(SharedNCF, self).__init__()
         self.num_users = num_users
         self.num_items = num_items
         self.embedding_k = embedding_k
@@ -164,155 +97,16 @@ class ESMM(nn.Module):
         return cvr, ctr, ctcvr
 
 
-class _MultiIps(nn.Module):
-    """Multi-task IPS"""
-    def __init__(self, num_users, num_items, embedding_k):
-        super(_MultiIps, self).__init__()
+class IpsV2(nn.Module):
+    def __init__(self, num_users, num_items, embedding_k=4, *args, **kwargs):
+        super().__init__()
         self.num_users = num_users
         self.num_items = num_items
         self.embedding_k = embedding_k
-        self.user_embedding = nn.Embedding(self.num_users, self.embedding_k)
-        self.item_embedding = nn.Embedding(self.num_items, self.embedding_k)
-        self.ctr = nn.Sequential(
-            nn.Linear(in_features=self.embedding_k*2, out_features=360),
-            nn.ReLU(),
-            nn.Linear(in_features=360, out_features=200),
-            nn.ReLU(),
-            nn.Linear(in_features=200, out_features=80),
-            nn.ReLU(),
-            nn.Linear(in_features=80, out_features=2),
-            nn.ReLU(),
-            nn.Linear(in_features=2, out_features=1),
-        )
-        self.cvr = nn.Sequential(
-            nn.Linear(in_features=self.embedding_k*2, out_features=360),
-            nn.ReLU(),
-            nn.Linear(in_features=360, out_features=200),
-            nn.ReLU(),
-            nn.Linear(in_features=200, out_features=80),
-            nn.ReLU(),
-            nn.Linear(in_features=80, out_features=2),
-            nn.ReLU(),
-            nn.Linear(in_features=2, out_features=1),
-        )
-
-    def forward(self, x):
-        user_idx = x[:,0]
-        item_idx = x[:,1]
-        user_embed = self.user_embedding(user_idx)
-        item_embed = self.item_embedding(item_idx)
-        z_embed = torch.cat([user_embed, item_embed], axis=1)
-        out_cvr = self.cvr(z_embed)
-        out_ctr = self.ctr(z_embed)
-
-        return out_cvr, out_ctr
-
-
-class MultiIps(nn.Module):
-    def __init__(self, num_users, num_items, embedding_k):
-        super(MultiIps, self).__init__()
-        self.num_users = num_users
-        self.num_items = num_items
-        self.embedding_k = embedding_k
-        self.user_embedding = nn.Embedding(self.num_users, self.embedding_k)
-        self.item_embedding = nn.Embedding(self.num_items, self.embedding_k)
-        self.ctr = nn.Sequential(
-            nn.Linear(self.embedding_k*2, self.embedding_k),
-            nn.ReLU(),
-            nn.Linear(self.embedding_k, 1, bias=False),
-        )
-        self.cvr = nn.Sequential(
-            nn.Linear(self.embedding_k*2, self.embedding_k),
-            nn.ReLU(),
-            nn.Linear(self.embedding_k, 1, bias=False),
-        )
-
-    def forward(self, x):
-        user_idx = x[:,0]
-        item_idx = x[:,1]
-        user_embed = self.user_embedding(user_idx)
-        item_embed = self.item_embedding(item_idx)
-        z_embed = torch.cat([user_embed, item_embed], axis=1)
-        ctr = self.ctr(z_embed)
-        cvr = self.cvr(z_embed)
-        return cvr, ctr
-
-
-class _ESCM2Ips(nn.Module):
-    """ESMM"""
-    def __init__(self, num_users, num_items, embedding_k):
-        super(_ESCM2Ips, self).__init__()
-        self.num_users = num_users
-        self.num_items = num_items
-        self.embedding_k = embedding_k
-        self.user_embedding = nn.Embedding(self.num_users, self.embedding_k)
-        self.item_embedding = nn.Embedding(self.num_items, self.embedding_k)
-        self.ctr = nn.Sequential(
-            nn.Linear(in_features=self.embedding_k*2, out_features=360),
-            nn.ReLU(),
-            nn.Linear(in_features=360, out_features=200),
-            nn.ReLU(),
-            nn.Linear(in_features=200, out_features=80),
-            nn.ReLU(),
-            nn.Linear(in_features=80, out_features=2),
-            nn.ReLU(),
-            nn.Linear(in_features=2, out_features=1),
-        )
-        self.cvr = nn.Sequential(
-            nn.Linear(in_features=self.embedding_k*2, out_features=360),
-            nn.ReLU(),
-            nn.Linear(in_features=360, out_features=200),
-            nn.ReLU(),
-            nn.Linear(in_features=200, out_features=80),
-            nn.ReLU(),
-            nn.Linear(in_features=80, out_features=2),
-            nn.ReLU(),
-            nn.Linear(in_features=2, out_features=1),
-        )
-
-    def forward(self, x):
-        user_idx = x[:,0]
-        item_idx = x[:,1]
-        user_embed = self.user_embedding(user_idx)
-        item_embed = self.item_embedding(item_idx)
-        z_embed = torch.cat([user_embed, item_embed], axis=1)
-        out_cvr = self.cvr(z_embed)
-        out_ctr = self.ctr(z_embed)
-        out_ctcvr = torch.mul(nn.Sigmoid()(out_ctr), nn.Sigmoid()(out_cvr))
-
-        return out_cvr, out_ctr, out_ctcvr
-
-
-class ESCM2Ips(nn.Module):
-    def __init__(self, num_users, num_items, embedding_k):
-        super(ESCM2Ips, self).__init__()
-        self.num_users = num_users
-        self.num_items = num_items
-        self.embedding_k = embedding_k
-        self.user_embedding = nn.Embedding(self.num_users, self.embedding_k)
-        self.item_embedding = nn.Embedding(self.num_items, self.embedding_k)
-        self.ctr = nn.Sequential(
-            nn.Linear(self.embedding_k*2, self.embedding_k),
-            nn.ReLU(),
-            nn.Linear(self.embedding_k, 1, bias=False),
-        )
-        self.cvr = nn.Sequential(
-            nn.Linear(self.embedding_k*2, self.embedding_k),
-            nn.ReLU(),
-            nn.Linear(self.embedding_k, 1, bias=False),
-        )
-
-    def forward(self, x):
-        user_idx = x[:,0]
-        item_idx = x[:,1]
-        user_embed = self.user_embedding(user_idx)
-        item_embed = self.item_embedding(item_idx)
-        z_embed = torch.cat([user_embed, item_embed], axis=1)
-        ctr = self.ctr(z_embed)
-        cvr = self.cvr(z_embed)
-        ctcvr = torch.mul(nn.Sigmoid()(ctr), nn.Sigmoid()(cvr))
-
-        return cvr, ctr, ctcvr
+        self.prediction_model = MF(
+            num_users = self.num_users, num_items = self.num_items, embedding_k=self.embedding_k, *args, **kwargs)       
+        self.propensity_model = LinearCF(
+            num_users = self.num_users, num_items = self.num_items, embedding_k=self.embedding_k, *args, **kwargs)
 
 
 class MF_AKBIPS_Exp(nn.Module):
@@ -342,7 +136,6 @@ class MF_AKBIPS_Exp(nn.Module):
         f_max = torch.max(feature)
         feature = feature - f_min / (f_max - f_min)                
         feature = feature/feature.shape[1]
-
         return feature
 
     def exp_kernel(self,X,Y,gamma = 0.1):
