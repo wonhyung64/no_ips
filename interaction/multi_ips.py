@@ -12,7 +12,7 @@ import torch.nn.functional as F
 from datetime import datetime
 from sklearn.metrics import roc_auc_score
 
-from module.model import MultiIps
+from module.model import SharedNCF
 from module.metric import ndcg_func, recall_func, ap_func
 from module.utils import set_seed, set_device
 from module.dataset import binarize, generate_total_sample, load_data
@@ -97,7 +97,7 @@ for seed in range(10):
     total_batch = num_samples // batch_size
 
     # TRAIN
-    model = MultiIps(num_users, num_items, embedding_k)
+    model = SharedNCF(num_users, num_items, embedding_k)
     model = model.to(device)
     optimizer = torch.optim.Adam(model.parameters(), lr=lr, weight_decay=weight_decay)
     loss_fcn = torch.nn.BCELoss()
@@ -120,7 +120,7 @@ for seed in range(10):
             sub_obs = torch.Tensor(obs[x_all_idx]).unsqueeze(-1).to(device)
             sub_entire_y = torch.Tensor(y_entire[x_all_idx]).unsqueeze(-1).to(device)
 
-            pred_cvr, pred_ctr = model(x_sampled)
+            pred_cvr, pred_ctr, pred_ctcvr = model(x_sampled)
             ctr_loss = loss_fcn(nn.Sigmoid()(pred_ctr), sub_obs)
             cvr_loss = F.binary_cross_entropy(nn.Sigmoid()(pred_cvr), sub_entire_y, 1/(nn.Sigmoid()(pred_ctr).detach()))
             total_loss = ctr_loss + cvr_loss
@@ -146,7 +146,7 @@ for seed in range(10):
         if epoch % evaluate_interval == 0:
             model.eval()
             x_test_tensor = torch.LongTensor(x_test-1).to(device)
-            pred_, _  = model(x_test_tensor)
+            pred_, _, __ = model(x_test_tensor)
             pred = pred_.flatten().cpu().detach().numpy()
 
             ndcg_res = ndcg_func(pred, x_test, y_test, top_k_list)

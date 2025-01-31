@@ -12,7 +12,7 @@ import torch.nn.functional as F
 from datetime import datetime
 from sklearn.metrics import roc_auc_score
 
-from module.model import ESMM
+from module.model import SharedNCF
 from module.metric import ndcg_func, recall_func, ap_func
 from module.utils import set_seed, set_device
 from module.dataset import binarize, generate_total_sample, load_data
@@ -100,7 +100,7 @@ num_samples = len(x_all)
 total_batch = num_samples // batch_size
 
 # TRAIN
-model = ESMM(num_users, num_items, embedding_k)
+model = SharedNCF(num_users, num_items, embedding_k)
 model = model.to(device)
 optimizer = torch.optim.Adam(model.parameters(), lr=lr, weight_decay=weight_decay)
 loss_fcn = torch.nn.BCELoss()
@@ -123,7 +123,7 @@ for epoch in range(1, num_epochs+1):
         sub_obs = torch.Tensor(obs[x_all_idx]).unsqueeze(-1).to(device)
         sub_entire_y = torch.Tensor(y_entire[x_all_idx]).unsqueeze(-1).to(device)
 
-        _, pred_ctr, pred_ctcvr = model(x_sampled)
+        pred_cvr, pred_ctr, pred_ctcvr = model(x_sampled)
         ctr_loss = loss_fcn(nn.Sigmoid()(pred_ctr), sub_obs)
         ctcvr_loss = loss_fcn(pred_ctcvr, sub_entire_y)
         total_loss = ctr_loss + ctcvr_loss

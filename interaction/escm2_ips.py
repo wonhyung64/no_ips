@@ -11,7 +11,7 @@ import torch.nn.functional as F
 from datetime import datetime
 from sklearn.metrics import roc_auc_score
 
-from module.model import ESCM2Ips
+from module.model import SharedNCF
 from module.metric import ndcg_func, recall_func, ap_func
 from module.utils import set_seed, set_device
 from module.dataset import binarize, generate_total_sample, load_data
@@ -102,7 +102,7 @@ for seed in range(10):
     total_batch = num_samples // batch_size
 
     # TRAIN
-    model = ESCM2Ips(num_users, num_items, embedding_k)
+    model = SharedNCF(num_users, num_items, embedding_k)
     model = model.to(device)
     optimizer = torch.optim.Adam(model.parameters(), lr=lr, weight_decay=weight_decay)
     loss_fcn = torch.nn.BCELoss()
