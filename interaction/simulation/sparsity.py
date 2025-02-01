@@ -12,11 +12,8 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from module.dataset import generate_total_sample
 from module.model import MF
-from module.utils import set_seed
+from module.utils import set_seed, set_device, sigmoid
 
-
-def sigmoid(x):
-    return 1 / (1 + np.exp(-x))
 
 #%%
 n_factors = 16
@@ -27,19 +24,10 @@ lr = 1e-2
 repeat_num = 30
 num_epochs = 500
 batch_size = 512
-embedding_k = 8
-# effect = "spurious"
-effect = "independent"
+device = set_device()
 
 mle = torch.nn.BCELoss(reduction="none")
 ipw = lambda x, y, z: F.binary_cross_entropy(x, y, z, reduction="none")
-
-if torch.cuda.is_available():
-    device = "cuda"
-elif torch.backends.mps.is_available():
-    device = "mps"
-else: 
-    device = "cpu"
 
 for treat_bias in treat_bias_list:
     T_list, mle_auc_list, ipw_auc_list = [], [], []
@@ -49,22 +37,19 @@ for treat_bias in treat_bias_list:
         Z_treat = np.random.normal(0, 1, (n_items, n_factors))
         Lambda_treat = np.random.uniform(0., 1., (n_samples, n_factors))
 
-        logit_t_real = Lambda_treat @ Z_treat.T + np.random.normal(0, 0.1, (n_samples, n_items)) + treat_bias
+        logit_t_real = Lambda_treat @ Z_treat.T + treat_bias
         prob_t_real = sigmoid(logit_t_real)
         T_real = np.random.binomial(1, prob_t_real)
         T_list.append(T_real.mean())
 
-        if effect == "spurious":
-            treatment_effect = logit_t_real
-        elif effect == "independent":
-            Z_effect = np.random.normal(0, 1, (n_items, n_factors))
-            Lambda_effect = np.random.uniform(0., 1., (n_samples, n_factors))
-            treatment_effect = Lambda_effect @ Z_effect.T + np.random.normal(0, 0.1, (n_samples, n_items))
+        Z_effect = np.random.normal(0, 1, (n_items, n_factors))
+        Lambda_effect = np.random.uniform(0., 1., (n_samples, n_factors))
+        treatment_effect = Lambda_effect @ Z_effect.T
 
         Z_interact = np.random.normal(0, 1, (n_items, n_factors))
         Lambda_interact = np.random.uniform(0., 1., (n_samples, n_factors))
-        prob_y1 = sigmoid(Lambda_interact @ Z_interact.T + np.random.normal(0, 0.1, (n_samples, n_items)) + treatment_effect)
-        prob_y0 = sigmoid(Lambda_interact @ Z_interact.T + np.random.normal(0, 0.1, (n_samples, n_items)))
+        prob_y1 = sigmoid(Lambda_interact @ Z_interact.T + treatment_effect)
+        prob_y0 = sigmoid(Lambda_interact @ Z_interact.T)
 
         Y1 = np.random.binomial(1, prob_y1)
         Y0 = np.random.binomial(1, prob_y0)
@@ -88,7 +73,7 @@ for treat_bias in treat_bias_list:
         total_batch = num_samples // batch_size
 
         """mle simulation"""
-        model = MF(n_samples, n_items, embedding_k)
+        model = MF(n_samples, n_items, n_factors)
         model = model.to("mps")
         optimizer = torch.optim.Adam(model.parameters(), lr=lr)
 
@@ -129,7 +114,7 @@ for treat_bias in treat_bias_list:
 
 
         """ipw simulation"""
-        model = MF(n_samples, n_items, embedding_k)
+        model = MF(n_samples, n_items, n_factors)
         model = model.to(device)
         optimizer = torch.optim.Adam(model.parameters(), lr=lr)
 
@@ -169,7 +154,6 @@ for treat_bias in treat_bias_list:
         ipw_auc = auc(fpr, tpr)
         ipw_auc_list.append(ipw_auc)
 
-    print(effect)
     print(treat_bias)
     print(f"{n_samples} users, {n_items} items, {n_factors} factors")
     print(f"T_bar : {np.mean(T_list)}")
