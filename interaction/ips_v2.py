@@ -82,6 +82,7 @@ configs = vars(args)
 configs["device"] = device
 wandb_var = wandb.init(project="no_ips", config=configs)
 wandb.run.name = f"ips_v2_{expt_num}"
+# wandb.run.name = f"naive_v2_{expt_num}"
 
 
 # DATA LOADER
@@ -134,6 +135,7 @@ for epoch in range(1, num_epochs+1):
         pred, _, __ = model.prediction_model(x_sampled)
         pred = nn.Sigmoid()(pred)
         ips_loss = -torch.mean((sub_entire_y * torch.log(pred + 1e-6) + (1-sub_entire_y) * torch.log(1 - pred + 1e-6)) * inv_prop_all * sub_obs)
+        # ips_loss = -torch.mean((sub_entire_y * torch.log(pred + 1e-6) + (1-sub_entire_y) * torch.log(1 - pred + 1e-6)) * sub_obs)
 
         pred_all, _, __ = model.prediction_model(x_sampled)
         pred_all_loss = F.binary_cross_entropy(1/inv_prop_all * nn.Sigmoid()(pred_all), sub_entire_y) * beta
