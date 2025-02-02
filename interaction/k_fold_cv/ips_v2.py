@@ -30,17 +30,10 @@ except:
 # SETTINGS
 parser = argparse.ArgumentParser()
 
-"""coat"""
 parser.add_argument("--lr", type=float, default=5e-2)
 parser.add_argument("--weight-decay", type=float, default=1e-4)
 parser.add_argument("--batch-size", type=int, default=4096)
 parser.add_argument("--dataset-name", type=str, default="coat")
-
-"""yahoo"""
-# parser.add_argument("--lr", type=float, default=5e-2)
-# parser.add_argument("--weight-decay", type=float, default=1e-4)
-# parser.add_argument("--batch-size", type=int, default=8192)
-# parser.add_argument("--dataset-name", type=str, default="yahoo_r3")
 
 parser.add_argument("--embedding-k", type=int, default=64)
 parser.add_argument("--num-epochs", type=int, default=1000)
@@ -97,7 +90,6 @@ for cv_num, (train_idx, test_idx) in enumerate(kf.split(x_train)):
     configs["cv_num"] = cv_num
     wandb_var = wandb.init(project="no_ips", config=configs)
     wandb.run.name = f"cv_ips_v2_{expt_num}"
-    # wandb.run.name = f"cv_naive_v2_{expt_num}"
 
     x_train = x_train_cv[train_idx]
     y_train = y_train_cv[train_idx]
@@ -142,7 +134,6 @@ for cv_num, (train_idx, test_idx) in enumerate(kf.split(x_train)):
             pred, _, __ = model.prediction_model(x_sampled)
             pred = nn.Sigmoid()(pred)
             ips_loss = -torch.mean((sub_entire_y * torch.log(pred + 1e-6) + (1-sub_entire_y) * torch.log(1 - pred + 1e-6)) * inv_prop_all * sub_obs)
-            # ips_loss = -torch.mean((sub_entire_y * torch.log(pred + 1e-6) + (1-sub_entire_y) * torch.log(1 - pred + 1e-6)) * sub_obs)
 
             pred_all, _, __ = model.prediction_model(x_sampled)
             pred_all_loss = F.binary_cross_entropy(1/inv_prop_all * nn.Sigmoid()(pred_all), sub_entire_y) * beta
