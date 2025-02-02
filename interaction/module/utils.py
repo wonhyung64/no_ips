@@ -43,3 +43,7 @@ def estimate_ips_bayes(x, y, y_ips=None):
     one_over_zl = torch.Tensor(one_over_zl)
 
     return one_over_zl
+
+
+def sigmoid(x):
+    return 1 / (1 + np.exp(-x))
