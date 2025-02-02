@@ -103,13 +103,13 @@ class IpsV2(nn.Module):
         self.num_users = num_users
         self.num_items = num_items
         self.embedding_k = embedding_k
-        self.prediction_model = MF(
+        self.prediction_model = NCF(
             num_users = self.num_users, num_items = self.num_items, embedding_k=self.embedding_k, *args, **kwargs)       
         self.propensity_model = LinearCF(
             num_users = self.num_users, num_items = self.num_items, embedding_k=self.embedding_k, *args, **kwargs)
 
 
-class MF_AKBIPS_Exp(nn.Module):
+class NCF_AKBIPS_Exp(nn.Module):
     def __init__(self, num_users, num_items, embedding_k=4, dataset_name="coat", *args, **kwargs):
         super().__init__()
         self.num_users = num_users
@@ -117,12 +117,12 @@ class MF_AKBIPS_Exp(nn.Module):
         self.embedding_k = embedding_k
         self.W = nn.Embedding(self.num_users, self.embedding_k)
         self.H = nn.Embedding(self.num_items, self.embedding_k)
-        self.prediction_model = MF(
+        self.prediction_model = NCF(
             num_users = self.num_users, num_items = self.num_items,embedding_k=self.embedding_k, *args, **kwargs)
         self.weight_model = MF(
             num_users = self.num_users, num_items = self.num_items,embedding_k=self.embedding_k, *args, **kwargs)
         if dataset_name == "coat":
-            self.epsilon = nn.Parameter(torch.rand(1,640)) 
+            self.epsilon = nn.Parameter(torch.rand(1,4096)) 
         elif dataset_name == "yahoo_r3":
             self.epsilon = nn.Parameter(torch.rand(1,8192)) 
 
