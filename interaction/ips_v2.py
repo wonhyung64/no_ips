@@ -28,7 +28,7 @@ except:
 parser = argparse.ArgumentParser()
 
 """coat"""
-parser.add_argument("--lr", type=float, default=5e-2)
+parser.add_argument("--lr", type=float, default=1e-4)
 parser.add_argument("--weight-decay", type=float, default=1e-4)
 parser.add_argument("--batch-size", type=int, default=4096)
 parser.add_argument("--dataset-name", type=str, default="coat")
