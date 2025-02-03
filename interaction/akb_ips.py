@@ -33,8 +33,8 @@ parser.add_argument("--batch-size", type=int, default=4096)
 parser.add_argument("--dataset-name", type=str, default="coat")
 
 """yahoo_r3"""
-# parser.add_argument("--lr1", type=float, default=0.05)
-# parser.add_argument("--lamb1", type=float, default=0.)
+# parser.add_argument("--lr1", type=float, default=1e-4)
+# parser.add_argument("--lamb1", type=float, default=1e-4)
 # parser.add_argument("--batch-size", type=int, default=8192)
 # parser.add_argument("--dataset-name", type=str, default="yahoo_r3")
 
