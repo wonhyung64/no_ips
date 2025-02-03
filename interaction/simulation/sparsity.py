@@ -16,9 +16,9 @@ from module.utils import set_seed, set_device, sigmoid
 
 
 #%%
-n_factors = 16
-n_items = 60
-n_samples = 1000
+n_factors = 8
+n_items = 20
+n_samples = 100
 treat_bias_list = [-1.9, -3.6, -4.8, -6.5]
 lr = 1e-2
 repeat_num = 30
@@ -48,7 +48,7 @@ for treat_bias in treat_bias_list:
 
         Z_interact = np.random.normal(0, 1, (n_items, n_factors))
         Lambda_interact = np.random.uniform(0., 1., (n_samples, n_factors))
-        prob_y1 = sigmoid(Lambda_interact @ Z_interact.T + treatment_effect)
+        prob_y1 = sigmoid(Lambda_interact @ Z_interact.T  + nn.ReLU()(torch.tensor(treatment_effect)).numpy())
         prob_y0 = sigmoid(Lambda_interact @ Z_interact.T)
 
         Y1 = np.random.binomial(1, prob_y1)

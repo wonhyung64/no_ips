@@ -15,11 +15,10 @@ from module.utils import set_seed, set_device, sigmoid
 from module.metric import cdcg_func, cp_func, car_func
 
 #%%
-n_factors = 16
-n_items = 60
-n_samples = 1000
-treat_bias_list = [-6.5]
-# treat_bias_list = [-1.9, -3.6, -4.8, -6.5]
+n_factors = 8
+n_items = 20
+n_samples = 100
+treat_bias_list = [-1.9, -3.6, -4.8, -6.5]
 lr = 1e-2
 repeat_num = 30
 num_epochs = 500
