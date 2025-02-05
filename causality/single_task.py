@@ -182,7 +182,7 @@ for seed in range(4):
             model_y1.eval()
             model_y0.eval()
 
-            x_test_tensor = torch.LongTensor(x_test-1).to(device)
+            x_test_tensor = torch.LongTensor(x_test).to(device)
             pred_y1, _, __ = model_y1(x_test_tensor)
             pred_y0, _, __ = model_y0(x_test_tensor)
             pred_y1 = nn.Sigmoid()(pred_y1).detach().cpu().numpy()
