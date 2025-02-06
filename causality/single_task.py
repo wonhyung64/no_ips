@@ -47,7 +47,7 @@ parser.add_argument("--weight-decay0", type=float, default=1e-4)
 
 # '''ips'''
 # parser.add_argument("--loss-type", type=str, default="ips")
-# parser.add_argument("--lr1", type=float, default=1e-4)
+# parser.add_argument("--lr1", type=float, default=1e-3)
 # parser.add_argument("--lr0", type=float, default=1e-4)
 # parser.add_argument("--weight-decay1", type=float, default=1e-4)
 # parser.add_argument("--weight-decay0", type=float, default=1e-4)
