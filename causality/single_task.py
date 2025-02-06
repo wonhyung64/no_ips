@@ -25,13 +25,44 @@ for seed in range(4):
 
     parser = argparse.ArgumentParser()
 
-    parser.add_argument("--embedding-k", type=int, default=64)
-    parser.add_argument("--lr", type=float, default=1e-4)
-    parser.add_argument("--weight-decay", type=float, default=1e-4)
-    parser.add_argument("--batch-size", type=int, default=4096)
+
+    """original"""
     parser.add_argument("--dataset-name", type=str, default="original")#[original, personalized]
 
-    parser.add_argument("--loss-type", type=str, default="naive")#[naive, ips]
+    # '''ips'''
+    # parser.add_argument("--loss-type", type=str, default="ips")
+    # parser.add_argument("--lr1", type=float, default=1e-2)
+    # parser.add_argument("--weight-decay1", type=float, default=1e-4)
+    # parser.add_argument("--lr0", type=float, default=1e-3)
+    # parser.add_argument("--weight-decay0", type=float, default=1e-4)
+
+    '''naive'''
+    parser.add_argument("--loss-type", type=str, default="naive")
+    parser.add_argument("--lr1", type=float, default=1e-4)
+    parser.add_argument("--weight-decay1", type=float, default=1e-4)
+    parser.add_argument("--lr0", type=float, default=1e-4)
+    parser.add_argument("--weight-decay0", type=float, default=1e-4)
+
+
+    """personalized"""
+    # parser.add_argument("--dataset-name", type=str, default="personalized")#[original, personalized]
+
+    # '''ips'''
+    # parser.add_argument("--loss-type", type=str, default="ips")
+    # parser.add_argument("--lr1", type=float, default=1e-4)
+    # parser.add_argument("--lr0", type=float, default=1e-4)
+    # parser.add_argument("--weight-decay1", type=float, default=1e-4)
+    # parser.add_argument("--weight-decay0", type=float, default=1e-4)
+
+    # '''naive'''
+    # parser.add_argument("--loss-type", type=str, default="naive")#[naive, ips]
+    # parser.add_argument("--lr1", type=float, default=1e-4)
+    # parser.add_argument("--lr0", type=float, default=1e-4)
+    # parser.add_argument("--weight-decay1", type=float, default=1e-4)
+    # parser.add_argument("--weight-decay0", type=float, default=1e-4)
+
+    parser.add_argument("--batch-size", type=int, default=4096)
+    parser.add_argument("--embedding-k", type=int, default=64)
     parser.add_argument("--num-epochs", type=int, default=1000)
     parser.add_argument("--random-seed", type=int, default=seed)
     parser.add_argument("--evaluate-interval", type=int, default=50)
@@ -42,9 +73,12 @@ for seed in range(4):
     except:
         args = parser.parse_args([])
 
+    lr1 = args.lr1
+    lr0 = args.lr0
+    weight_decay1 = args.weight_decay1
+    weight_decay0 = args.weight_decay0
+
     embedding_k = args.embedding_k
-    lr = args.lr
-    weight_decay = args.weight_decay
     batch_size = args.batch_size
     num_epochs = args.num_epochs
     random_seed = args.random_seed
@@ -99,11 +133,11 @@ for seed in range(4):
     # conditional outcome modeling
     model_y1 = NCF(num_users, num_items, embedding_k)
     model_y1 = model_y1.to(device)
-    optimizer_y1 = torch.optim.Adam(model_y1.parameters(), lr=lr, weight_decay=weight_decay)
+    optimizer_y1 = torch.optim.Adam(model_y1.parameters(), lr=lr1, weight_decay=weight_decay1)
 
     model_y0 = NCF(num_users, num_items, embedding_k)
     model_y0 = model_y0.to(device)
-    optimizer_y0 = torch.optim.Adam(model_y0.parameters(), lr=lr, weight_decay=weight_decay)
+    optimizer_y0 = torch.optim.Adam(model_y0.parameters(), lr=lr0, weight_decay=weight_decay0)
     inv_prop = torch.tensor([1.]).to(device)
 
     for epoch in range(1, num_epochs+1):
