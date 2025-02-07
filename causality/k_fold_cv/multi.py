@@ -13,7 +13,7 @@ from sklearn.model_selection import KFold
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from module.model import NCF
+from module.model import SharedNCF
 from module.dataset import load_data, generate_total_sample
 from module.utils import set_device, set_seed
 
@@ -73,7 +73,7 @@ for cv_num, (train_idx, test_idx) in enumerate(kf.split(x_train)):
     configs["device"] = device
     configs["cv_num"] = cv_num
     wandb_var = wandb.init(project="no_ips", config=configs)
-    wandb.run.name = f"cv_single_{loss_type}_causality_{expt_num}"
+    wandb.run.name = f"cv_multi_{loss_type}_causality_{expt_num}"
 
 
     x_train = x_train_cv[train_idx]
@@ -112,11 +112,11 @@ for cv_num, (train_idx, test_idx) in enumerate(kf.split(x_train)):
     total_batch = num_samples // batch_size
 
     # conditional outcome modeling
-    model_y1 = NCF(num_users, num_items, embedding_k)
+    model_y1 = SharedNCF(num_users, num_items, embedding_k)
     model_y1 = model_y1.to(device)
     optimizer_y1 = torch.optim.Adam(model_y1.parameters(), lr=lr, weight_decay=weight_decay)
 
-    model_y0 = NCF(num_users, num_items, embedding_k)
+    model_y0 = SharedNCF(num_users, num_items, embedding_k)
     model_y0 = model_y0.to(device)
     optimizer_y0 = torch.optim.Adam(model_y0.parameters(), lr=lr, weight_decay=weight_decay)
     inv_prop = torch.tensor([1.]).to(device)
@@ -129,8 +129,10 @@ for cv_num, (train_idx, test_idx) in enumerate(kf.split(x_train)):
 
         epoch_total_y1_loss = 0.
         epoch_y1_loss = 0.
+        epoch_t_y1_loss = 0.
         epoch_total_y0_loss = 0.
         epoch_y0_loss = 0.
+        epoch_t_y0_loss = 0.
 
         for idx in range(total_batch):
             # mini-batch training
@@ -147,13 +149,15 @@ for cv_num, (train_idx, test_idx) in enumerate(kf.split(x_train)):
             if loss_type == "ips":
                 inv_prop = 1/(sub_ps+1e-9)
 
-            pred, user_embed, item_embed = model_y1(sub_x)
+            pred, ctr, ctcvr = model_y1(sub_x)
             rec_loss = nn.functional.binary_cross_entropy(
                 nn.Sigmoid()(pred), sub_y, weight=inv_prop, reduction="none")
             rec_loss = torch.mean(rec_loss * sub_t)
-            total_loss = rec_loss
+            ctr_loss = nn.functional.binary_cross_entropy(nn.Sigmoid()(ctr), sub_t)
+            total_loss = rec_loss + ctr_loss
 
             epoch_y1_loss += rec_loss
+            epoch_t_y1_loss += ctr_loss
             epoch_total_y1_loss += total_loss
 
             optimizer_y1.zero_grad()
@@ -169,13 +173,15 @@ for cv_num, (train_idx, test_idx) in enumerate(kf.split(x_train)):
             if loss_type == "ips":
                 inv_prop = 1/(sub_ps+1e-9)
 
-            pred, user_embed, item_embed = model_y0(sub_x)
+            pred, ctr, ctcvr = model_y0(sub_x)
             rec_loss = nn.functional.binary_cross_entropy(
                 nn.Sigmoid()(pred), sub_y, weight=inv_prop, reduction="none")
             rec_loss = torch.mean(rec_loss * sub_t)
-            total_loss = rec_loss
+            ctr_loss = nn.functional.binary_cross_entropy(nn.Sigmoid()(ctr), 1-sub_t)
+            total_loss = rec_loss + ctr_loss
 
             epoch_y0_loss += rec_loss
+            epoch_t_y0_loss += ctr_loss
             epoch_total_y0_loss += total_loss
 
             optimizer_y0.zero_grad()
@@ -189,6 +195,8 @@ for cv_num, (train_idx, test_idx) in enumerate(kf.split(x_train)):
             'epoch_y0_loss': float(epoch_y0_loss.item()),
             'epoch_total_y1_loss': float(epoch_total_y1_loss.item()),
             'epoch_total_y0_loss': float(epoch_total_y0_loss.item()),
+            'epoch_t_y1_loss': float(epoch_t_y1_loss.item()),
+            'epoch_t_y0_loss': float(epoch_t_y0_loss.item()),
         }
 
         wandb_var.log(loss_dict)
