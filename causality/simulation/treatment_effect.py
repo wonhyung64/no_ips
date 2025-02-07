@@ -249,7 +249,7 @@ for n_samples in n_samples_list:
                 ips_cp_list.append(cp_res)
                 ips_car_list.append(car_res)
 
-                cdcg_dict = cdcg_func(cate_test, x_all, cate_test, top_k_list=[n_items])
+                cdcg_dict = cdcg_func(cate_test, x_all, cate_test, top_k_list=[top_k])
 
             print(f"{n_samples} users, {n_items} items, {n_factors} factors")
             print(f"T_bar : {np.mean(T_list)}")
