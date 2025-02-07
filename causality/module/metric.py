@@ -47,7 +47,7 @@ def cdcg_func(pred, x_test, y_test, top_k_list):
                 break
             log2_iplus1 = np.log2(1+np.arange(1,top_k+1))
             pred_top_k_rel = true_u[np.argsort(-pred_u)][:top_k]
-            cdcg_k = pred_top_k_rel / log2_iplus1
+            cdcg_k = (pred_top_k_rel / log2_iplus1).sum()
             result_map[f"cdcg_{top_k}"].append(cdcg_k)
 
     return result_map
