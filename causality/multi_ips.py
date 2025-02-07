@@ -43,7 +43,7 @@ parser.add_argument("--embedding-k", type=int, default=64)
 parser.add_argument("--num-epochs", type=int, default=1000)
 parser.add_argument("--random-seed", type=int, default=0)
 parser.add_argument("--evaluate-interval", type=int, default=50)
-parser.add_argument("--top-k-list", type=list, default=[1,3,5,7,10,100])
+parser.add_argument("--top-k-list", type=list, default=[10, 30, 100, 1372])
 parser.add_argument("--data-dir", type=str, default="./data")
 try:
     args = parser.parse_args()
