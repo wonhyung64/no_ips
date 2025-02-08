@@ -33,11 +33,11 @@ parser.add_argument("--weight-decay0", type=float, default=1e-4)
 
 
 """personalized""" # end
-# parser.add_argument("--dataset-name", type=str, default="personalized")#[original, personalized]
-# parser.add_argument("--lr1", type=float, default=1e-3)
-# parser.add_argument("--lr0", type=float, default=1e-3)
-# parser.add_argument("--weight-decay1", type=float, default=1e-4)
-# parser.add_argument("--weight-decay0", type=float, default=1e-4)
+parser.add_argument("--dataset-name", type=str, default="personalized")#[original, personalized]
+parser.add_argument("--lr1", type=float, default=1e-3)
+parser.add_argument("--lr0", type=float, default=1e-3)
+parser.add_argument("--weight-decay1", type=float, default=1e-4)
+parser.add_argument("--weight-decay0", type=float, default=1e-4)
 
 parser.add_argument("--batch-size", type=int, default=4096)
 parser.add_argument("--embedding-k", type=int, default=64)
@@ -64,7 +64,6 @@ evaluate_interval = args.evaluate_interval
 top_k_list = args.top_k_list
 data_dir = args.data_dir
 dataset_name = args.dataset_name
-loss_type = args.loss_type
 
 expt_num = f'{datetime.now().strftime("%y%m%d_%H%M%S_%f")}'
 set_seed(random_seed)

@@ -64,7 +64,6 @@ evaluate_interval = args.evaluate_interval
 top_k_list = args.top_k_list
 data_dir = args.data_dir
 dataset_name = args.dataset_name
-loss_type = args.loss_type
 
 expt_num = f'{datetime.now().strftime("%y%m%d_%H%M%S_%f")}'
 set_seed(random_seed)
