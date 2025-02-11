@@ -73,7 +73,7 @@ device = set_device()
 configs = vars(args)
 configs["device"] = device
 wandb_var = wandb.init(project="no_ips", config=configs)
-wandb.run.name = f"multi_ips_{expt_num}"
+wandb.run.name = f"multi_naive_{expt_num}"
 
 # DATA LOADER
 x_train, x_test = load_data(data_dir, dataset_name)
@@ -102,7 +102,7 @@ optimizer = torch.optim.Adam(model.parameters(), lr=lr, weight_decay=weight_deca
 x_test_tensor = torch.LongTensor(x_test-1).to(device)
 
 for epoch in range(1, num_epochs+1):
-    ul_idxs = np.arange(x_all.shape[0]) # all
+    ul_idxs = np.arange(x_all.shape[0])
     np.random.shuffle(ul_idxs)
     model.train()
 
@@ -121,10 +121,9 @@ for epoch in range(1, num_epochs+1):
         sub_t = torch.Tensor(sub_t).unsqueeze(-1).to(device)
 
         pred, ctr, ctcvr = model(sub_x)
-        inv_prop = 1/torch.nn.Sigmoid()(ctr).detach()
         ctr_loss = F.binary_cross_entropy(nn.Sigmoid()(ctr), sub_t)
         rec_loss = F.binary_cross_entropy(
-            torch.nn.Sigmoid()(pred), sub_y, weight=inv_prop, reduction='none') 
+            torch.nn.Sigmoid()(pred), sub_y, reduction="none") 
         rec_loss = (rec_loss * sub_t).mean()
         epoch_rec_loss += rec_loss
         epoch_ctr_loss += ctr_loss
