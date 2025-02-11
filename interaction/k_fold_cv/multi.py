@@ -12,6 +12,8 @@ import torch.nn.functional as F
 from sklearn.metrics import roc_auc_score
 from sklearn.model_selection import KFold
 
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 from module.model import SharedNCF
 from module.metric import ndcg_func, recall_func, ap_func
 from module.dataset import binarize, load_data, generate_total_sample
