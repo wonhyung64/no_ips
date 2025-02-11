@@ -42,6 +42,59 @@ class NCF(nn.Module):
         return out, user_embed, item_embed
 
 
+class NCFPlus(nn.Module):
+    def __init__(self, num_users, num_items, embedding_k):
+        super(NCFPlus, self).__init__()
+        self.num_users = num_users
+        self.num_items = num_items
+        self.embedding_k = embedding_k
+        self.user_embedding = nn.Embedding(self.num_users, self.embedding_k)
+        self.item_embedding = nn.Embedding(self.num_items, self.embedding_k)
+        self.y1 = nn.Sequential(
+            nn.Linear(self.embedding_k*2, self.embedding_k),
+            nn.ReLU(),
+            nn.Linear(self.embedding_k, 1, bias=False),
+        )
+        self.y0 = nn.Sequential(
+            nn.Linear(self.embedding_k*2, self.embedding_k),
+            nn.ReLU(),
+            nn.Linear(self.embedding_k, 1, bias=False),
+        )
+
+    def forward(self, x):
+        user_idx = x[:,0]
+        item_idx = x[:,1]
+        user_embed = self.user_embedding(user_idx)
+        item_embed = self.item_embedding(item_idx)
+        z_embed = torch.cat([user_embed, item_embed], axis=1)
+        y1_out = self.y1(z_embed)
+        y0_out = self.y0(z_embed)
+        return y1_out, y0_out
+
+
+class LinearCF(nn.Module):
+    """The neural collaborative filtering method.
+    """
+    def __init__(self, num_users, num_items, embedding_k):
+        super(LinearCF, self).__init__()
+        self.num_users = num_users
+        self.num_items = num_items
+        self.embedding_k = embedding_k
+        self.user_embedding = nn.Embedding(self.num_users, self.embedding_k)
+        self.item_embedding = nn.Embedding(self.num_items, self.embedding_k)
+        self.linear_1 = nn.Linear(self.embedding_k*2, 1, bias=True)
+
+    def forward(self, x):
+        user_idx = x[:,0]
+        item_idx = x[:,1]
+        user_embed = self.user_embedding(user_idx)
+        item_embed = self.item_embedding(item_idx)
+        z_embed = torch.cat([user_embed, item_embed], axis=1)
+        out = self.linear_1(z_embed)
+        return out, user_embed, item_embed
+
+
+
 class LinearCF(nn.Module):
     """The neural collaborative filtering method.
     """
