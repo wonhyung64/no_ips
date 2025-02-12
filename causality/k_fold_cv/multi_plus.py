@@ -173,7 +173,7 @@ for cv_num, (train_idx, test_idx) in enumerate(kf.split(x_train)):
             total_loss.backward()
             optimizer.step()
 
-        print(f"[Epoch {epoch:>4d} Train Loss] y1: {epoch_total_y1_loss.item():.4f} / y0: {epoch_total_y0_loss.item():.4f}")
+        print(f"[Epoch {epoch:>4d} Train Loss] y1: {epoch_y1_loss.item():.4f} / y0: {epoch_y0_loss.item():.4f}")
 
         loss_dict: dict = {
             'epoch_y1_loss': float(epoch_y1_loss.item()),
