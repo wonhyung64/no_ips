@@ -168,7 +168,7 @@ for epoch in range(1, num_epochs+1):
     if epoch % evaluate_interval == 0:
         model.eval()
 
-        pred_y1, pred_y0 = model(x1_test_tensor)
+        pred_y1, pred_y0 = model(x_test_tensor)
         pred_y1 = nn.Sigmoid()(pred_y1).detach().cpu().numpy()
         pred_y0 = nn.Sigmoid()(pred_y0).detach().cpu().numpy()
         pred = (pred_y1 - pred_y0).squeeze()
