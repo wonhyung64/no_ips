@@ -142,7 +142,7 @@ for cv_num, (train_idx, test_idx) in enumerate(kf.split(x_train)):
             if loss_type == "ips":
                 inv_prop = 1/(sub_ps+1e-9)
 
-            pred_y1, pred_y0, ctr = model_y1(sub_x)
+            pred_y1, pred_y0, ctr = model(sub_x)
 
             rec_loss = nn.functional.binary_cross_entropy(
                 nn.Sigmoid()(pred_y1), sub_y, weight=inv_prop, reduction="none")
@@ -193,7 +193,7 @@ for cv_num, (train_idx, test_idx) in enumerate(kf.split(x_train)):
             auc_y1 = roc_auc_score(y1_test, pred_y1)
 
             x0_test_tensor = torch.LongTensor(x0_test).to(device)
-            _, pred_y0, __ = model_y0(x0_test_tensor)
+            _, pred_y0, __ = model(x0_test_tensor)
             pred_y0 = pred_y0.detach().cpu().numpy()
             auc_y0 = roc_auc_score(y0_test, pred_y0)
 
