@@ -104,7 +104,7 @@ x_test_tensor = torch.LongTensor(x_test).to(device)
 # conditional outcome modeling
 model = SharedNCFPlus(num_users, num_items, embedding_k)
 model = model.to(device)
-optimizer = torch.optim.Adam(model.parameters(), lr=lr1, weight_decay=weight_decay1)
+optimizer = torch.optim.Adam(model.parameters(), lr=lr, weight_decay=weight_decay)
 
 for epoch in range(1, num_epochs+1):
     all_idx = np.arange(num_samples)
