@@ -132,7 +132,7 @@ for epoch in range(1, num_epochs+1):
 
         pred_y1, pred_y0, ctr = model(sub_x)
         rec_loss = nn.functional.binary_cross_entropy(
-            nn.Sigmoid()(pred), sub_y, weight=inv_prop, reduction="none")
+            nn.Sigmoid()(pred_y1), sub_y, weight=inv_prop, reduction="none")
         y1_loss = torch.mean(rec_loss * sub_t)
         epoch_y1_loss += y1_loss
 
@@ -148,7 +148,7 @@ for epoch in range(1, num_epochs+1):
         inv_prop = 1/(sub_ps+1e-9)
 
         rec_loss = nn.functional.binary_cross_entropy(
-            nn.Sigmoid()(pred), sub_y, weight=inv_prop, reduction="none")
+            nn.Sigmoid()(pred_y0), sub_y, weight=inv_prop, reduction="none")
         y0_loss = torch.mean(rec_loss * sub_t)
         epoch_y0_loss += y0_loss
 
