@@ -175,7 +175,7 @@ for epoch in range(1, num_epochs+1):
         rec_loss = torch.mean(rec_loss * sub_t)
         ctr_loss = nn.functional.binary_cross_entropy(nn.Sigmoid()(ctr), 1-sub_t)
         ctcvr_loss = nn.functional.binary_cross_entropy(ctcvr, sub_y)
-        total_loss = rec_loss + ctr_loss
+        total_loss = rec_loss + ctr_loss + ctcvr_loss
 
         epoch_y0_loss += rec_loss
         epoch_t_y0_loss += ctr_loss
