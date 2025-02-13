@@ -113,6 +113,7 @@ for epoch in range(1, num_epochs+1):
 
     epoch_total_loss = 0.
     epoch_y1_loss = 0.
+    epoch_y0_loss = 0.
     epoch_t_loss = 0.
 
     for idx in range(total_batch):
