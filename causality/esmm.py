@@ -124,10 +124,10 @@ for epoch in range(1, num_epochs+1):
     model_y0.train()
 
     epoch_total_y1_loss = 0.
-    epoch_y1_loss = 0.
+    epoch_t_y1_loss = 0.
     epoch_y1_ctcvr_loss = 0.
     epoch_total_y0_loss = 0.
-    epoch_y0_loss = 0.
+    epoch_t_y0_loss = 0.
     epoch_y0_ctcvr_loss = 0.
 
     for idx in range(total_batch):
