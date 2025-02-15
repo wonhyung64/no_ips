@@ -9,7 +9,7 @@ import torch.nn as nn
 import scipy.sparse as sps
 from datetime import datetime
 
-from module.model import SharedNCF
+from module.model import SharedNCFPlus
 from module.metric import cdcg_func, car_func, cp_func, ncdcg_func
 from module.dataset import load_data, generate_total_sample
 from module.utils import set_device, set_seed
@@ -24,20 +24,16 @@ except:
 parser = argparse.ArgumentParser()
 
 
-"""original"""#end
+"""original""" #end
 parser.add_argument("--dataset-name", type=str, default="original")#[original, personalized]
-parser.add_argument("--lr1", type=float, default=1e-4)
-parser.add_argument("--weight-decay1", type=float, default=1e-4)
-parser.add_argument("--lr0", type=float, default=1e-4)
-parser.add_argument("--weight-decay0", type=float, default=1e-4)
+parser.add_argument("--lr", type=float, default=1e-4)
+parser.add_argument("--weight-decay", type=float, default=1e-4)
 
 
-"""personalized"""#end
-# parser.add_argument("--dataset-name", type=str, default="personalized")
-# parser.add_argument("--lr1", type=float, default=1e-4)
-# parser.add_argument("--lr0", type=float, default=1e-4)
-# parser.add_argument("--weight-decay1", type=float, default=1e-4)
-# parser.add_argument("--weight-decay0", type=float, default=1e-4)
+"""personalized""" #end
+# parser.add_argument("--dataset-name", type=str, default="personalized")#[original, personalized]
+# parser.add_argument("--lr", type=float, default=1e-4)
+# parser.add_argument("--weight-decay", type=float, default=1e-4)
 
 parser.add_argument("--batch-size", type=int, default=4096)
 parser.add_argument("--embedding-k", type=int, default=64)
@@ -51,10 +47,8 @@ try:
 except:
     args = parser.parse_args([])
 
-lr1 = args.lr1
-lr0 = args.lr0
-weight_decay1 = args.weight_decay1
-weight_decay0 = args.weight_decay0
+lr = args.lr
+weight_decay = args.weight_decay
 
 embedding_k = args.embedding_k
 batch_size = args.batch_size
@@ -73,7 +67,7 @@ device = set_device()
 configs = vars(args)
 configs["device"] = device
 wandb_var = wandb.init(project="no_ips", config=configs)
-wandb.run.name = f"esmm_causality_{expt_num}"
+wandb.run.name = f"esmm_plus_causality_{expt_num}"
 
 
 x_train, x_test = load_data(data_dir, dataset_name)
@@ -109,25 +103,18 @@ total_batch = num_samples // batch_size
 x_test_tensor = torch.LongTensor(x_test).to(device)
 
 # conditional outcome modeling
-model_y1 = SharedNCF(num_users, num_items, embedding_k)
-model_y1 = model_y1.to(device)
-optimizer_y1 = torch.optim.Adam(model_y1.parameters(), lr=lr1, weight_decay=weight_decay1)
-
-model_y0 = SharedNCF(num_users, num_items, embedding_k)
-model_y0 = model_y0.to(device)
-optimizer_y0 = torch.optim.Adam(model_y0.parameters(), lr=lr0, weight_decay=weight_decay0)
+model = SharedNCFPlus(num_users, num_items, embedding_k)
+model = model.to(device)
+optimizer = torch.optim.Adam(model.parameters(), lr=lr, weight_decay=weight_decay)
 
 for epoch in range(1, num_epochs+1):
     all_idx = np.arange(num_samples)
     np.random.shuffle(all_idx)
-    model_y1.train()
-    model_y0.train()
+    model.train()
 
-    epoch_total_y1_loss = 0.
-    epoch_y1_loss = 0.
+    epoch_total_loss = 0.
+    epoch_t_loss = 0.
     epoch_y1_ctcvr_loss = 0.
-    epoch_total_y0_loss = 0.
-    epoch_y0_loss = 0.
     epoch_y0_ctcvr_loss = 0.
 
     for idx in range(total_batch):
@@ -141,58 +128,45 @@ for epoch in range(1, num_epochs+1):
         sub_t = obs1[selected_idx]
         sub_t = torch.Tensor(sub_t).unsqueeze(-1).to(device)
 
-        pred, ctr, ctcvr = model_y1(sub_x)
+        pred_y1, pred_y0, ctr = model(sub_x)
+
         ctr_loss = nn.functional.binary_cross_entropy(nn.Sigmoid()(ctr), sub_t)
-        ctcvr_loss = nn.functional.binary_cross_entropy(ctcvr, sub_y)
 
-        total_loss = ctr_loss + ctcvr_loss
-
-        epoch_t_y1_loss += ctr_loss
-        epoch_y1_ctcvr_loss += ctcvr_loss
-        epoch_total_y1_loss += total_loss
-
-        optimizer_y1.zero_grad()
-        total_loss.backward()
-        optimizer_y1.step()
+        ctcvr = nn.Sigmoid()(pred_y1) * nn.Sigmoid()(ctr)
+        y1_ctcvr_loss = nn.functional.binary_cross_entropy(ctcvr, sub_y)
 
         sub_y = y0_entire[selected_idx]
         sub_y = torch.Tensor(sub_y).unsqueeze(-1).to(device)
-        sub_t = obs0[selected_idx]
-        sub_t = torch.Tensor(sub_t).unsqueeze(-1).to(device)
 
-        pred, ctr, _ = model_y0(sub_x)
-        ctr_loss = nn.functional.binary_cross_entropy(nn.Sigmoid()(ctr), 1-sub_t)
-        ctcvr = nn.Sigmoid()(pred) * (1-nn.Sigmoid()(ctr))
-        ctcvr_loss = nn.functional.binary_cross_entropy(ctcvr, sub_y)
-        total_loss = ctr_loss + ctcvr_loss
+        ctcvr = nn.Sigmoid()(pred_y0) * (1-nn.Sigmoid()(ctr))
+        y0_ctcvr_loss = nn.functional.binary_cross_entropy(ctcvr, sub_y)
 
-        epoch_t_y0_loss += ctr_loss
-        epoch_y0_ctcvr_loss += ctcvr_loss
-        epoch_total_y0_loss += total_loss
+        total_loss = ctr_loss + y1_ctcvr_loss + y0_ctcvr_loss
 
-        optimizer_y0.zero_grad()
+        epoch_y1_ctcvr_loss += y1_ctcvr_loss
+        epoch_y0_ctcvr_loss += y0_ctcvr_loss
+        epoch_t_loss += ctr_loss
+        epoch_total_loss += total_loss
+
+        optimizer.zero_grad()
         total_loss.backward()
-        optimizer_y0.step()
+        optimizer.step()
 
-    print(f"[Epoch {epoch:>4d} Train Loss] y1: {epoch_total_y1_loss.item():.4f} / y0: {epoch_total_y0_loss.item():.4f}")
+    print(f"[Epoch {epoch:>4d} Train Loss] y1: {epoch_y1_ctcvr_loss.item():.4f} / y0: {epoch_y0_ctcvr_loss.item():.4f}")
 
     loss_dict: dict = {
-        'epoch_t_y1_loss': float(epoch_t_y1_loss.item()),
-        'epoch_t_y0_loss': float(epoch_t_y0_loss.item()),
-        'epoch_total_y1_loss': float(epoch_total_y1_loss.item()),
-        'epoch_total_y0_loss': float(epoch_total_y0_loss.item()),
         'epoch_y1_ctcvr_loss': float(epoch_y1_ctcvr_loss.item()),
         'epoch_y0_ctcvr_loss': float(epoch_y0_ctcvr_loss.item()),
+        'epoch_total_loss': float(epoch_total_loss.item()),
+        'epoch_t_loss': float(epoch_t_loss.item()),
     }
 
     wandb_var.log(loss_dict)
 
     if epoch % evaluate_interval == 0:
-        model_y1.eval()
-        model_y0.eval()
+        model.eval()
 
-        pred_y1, _, __ = model_y1(x_test_tensor)
-        pred_y0, _, __ = model_y0(x_test_tensor)
+        pred_y1, pred_y0, _ = model(x_test_tensor)
         pred_y1 = nn.Sigmoid()(pred_y1).detach().cpu().numpy()
         pred_y0 = nn.Sigmoid()(pred_y0).detach().cpu().numpy()
         pred = (pred_y1 - pred_y0).squeeze()
@@ -247,3 +221,5 @@ wandb_var.log(cp_dict)
 wandb_var.log(car_dict)
 
 wandb.finish()
+
+# %%
