@@ -136,10 +136,10 @@ for epoch in range(1, num_epochs+1):
             nn.Sigmoid()(pred_y1), sub_y, reduction="none")
         y1_loss = torch.mean(rec_loss * sub_t)
 
+        ctr_loss = nn.functional.binary_cross_entropy(nn.Sigmoid()(ctr), sub_t)
+
         ctcvr = nn.Sigmoid()(pred_y1) * nn.Sigmoid()(ctr)
         y1_ctcvr_loss = nn.functional.binary_cross_entropy(ctcvr, sub_y)
-
-        ctr_loss = nn.functional.binary_cross_entropy(nn.Sigmoid()(ctr), sub_t)
 
         sub_y = y0_entire[selected_idx]
         sub_y = torch.Tensor(sub_y).unsqueeze(-1).to(device)
@@ -150,7 +150,7 @@ for epoch in range(1, num_epochs+1):
             nn.Sigmoid()(pred_y0), sub_y, reduction="none")
         y0_loss = torch.mean(rec_loss * sub_t)
 
-        ctcvr = nn.Sigmoid()(pred_y0) * nn.Sigmoid()(ctr)
+        ctcvr = nn.Sigmoid()(pred_y0) * (1-nn.Sigmoid()(ctr))
         y0_ctcvr_loss = nn.functional.binary_cross_entropy(ctcvr, sub_y)
 
         total_loss = y1_loss + y0_loss + ctr_loss + y1_ctcvr_loss + y0_ctcvr_loss

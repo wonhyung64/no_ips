@@ -154,15 +154,13 @@ for cv_num, (train_idx, test_idx) in enumerate(kf.split(x_train)):
                 nn.Sigmoid()(pred_y1), sub_y, weight=inv_prop, reduction="none")
             y1_loss = torch.mean(rec_loss * sub_t)
 
+            ctr_loss = nn.functional.binary_cross_entropy(nn.Sigmoid()(ctr), sub_t)
+
             ctcvr = nn.Sigmoid()(pred_y1) * nn.Sigmoid()(ctr)
             y1_ctcvr_loss = nn.functional.binary_cross_entropy(ctcvr, sub_y)
 
-            ctr_loss = nn.functional.binary_cross_entropy(nn.Sigmoid()(ctr), sub_t)
-
             sub_y = y0_entire[selected_idx]
             sub_y = torch.Tensor(sub_y).unsqueeze(-1).to(device)
-            sub_t = obs0[selected_idx]
-            sub_t = torch.Tensor(sub_t).unsqueeze(-1).to(device)
             sub_ps = ps0_entire[selected_idx]
             sub_ps = torch.Tensor(sub_ps).unsqueeze(-1).to(device)
             if loss_type == "ips":
@@ -172,7 +170,7 @@ for cv_num, (train_idx, test_idx) in enumerate(kf.split(x_train)):
                 nn.Sigmoid()(pred_y0), sub_y, weight=inv_prop, reduction="none")
             y0_loss = torch.mean(rec_loss * sub_t)
 
-            ctcvr = nn.Sigmoid()(pred_y0) * nn.Sigmoid()(ctr)
+            ctcvr = nn.Sigmoid()(pred_y0) * (1-nn.Sigmoid()(ctr))
             y0_ctcvr_loss = nn.functional.binary_cross_entropy(ctcvr, sub_y)
 
             total_loss = y1_loss + y0_loss + ctr_loss + y1_ctcvr_loss + y0_ctcvr_loss

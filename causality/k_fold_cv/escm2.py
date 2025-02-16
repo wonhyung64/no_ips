@@ -111,6 +111,9 @@ for cv_num, (train_idx, test_idx) in enumerate(kf.split(x_train)):
     num_samples = len(x_all)
     total_batch = num_samples // batch_size
 
+    x1_test_tensor = torch.LongTensor(x1_test).to(device)
+    x0_test_tensor = torch.LongTensor(x0_test).to(device)
+
     # conditional outcome modeling
     model_y1 = SharedNCF(num_users, num_items, embedding_k)
     model_y1 = model_y1.to(device)
@@ -178,13 +181,15 @@ for cv_num, (train_idx, test_idx) in enumerate(kf.split(x_train)):
             if loss_type == "ips":
                 inv_prop = 1/(sub_ps+1e-9)
 
-            pred, ctr, ctcvr = model_y0(sub_x)
+            pred, ctr, _ = model_y0(sub_x)
+            ctcvr = nn.Sigmoid()(pred) * (1-nn.Sigmoid()(ctr))
+
             rec_loss = nn.functional.binary_cross_entropy(
                 nn.Sigmoid()(pred), sub_y, weight=inv_prop, reduction="none")
             rec_loss = torch.mean(rec_loss * sub_t)
             ctr_loss = nn.functional.binary_cross_entropy(nn.Sigmoid()(ctr), 1-sub_t)
             ctcvr_loss = nn.functional.binary_cross_entropy(ctcvr, sub_y)
-            total_loss = rec_loss + ctr_loss
+            total_loss = rec_loss + ctr_loss + ctcvr_loss
 
             epoch_y0_loss += rec_loss
             epoch_t_y0_loss += ctr_loss
@@ -214,12 +219,10 @@ for cv_num, (train_idx, test_idx) in enumerate(kf.split(x_train)):
             model_y1.eval()
             model_y0.eval()
 
-            x1_test_tensor = torch.LongTensor(x1_test).to(device)
             pred_y1, _, __ = model_y1(x1_test_tensor)
             pred_y1 = pred_y1.detach().cpu().numpy()
             auc_y1 = roc_auc_score(y1_test, pred_y1)
 
-            x0_test_tensor = torch.LongTensor(x0_test).to(device)
             pred_y0, _, __ = model_y0(x0_test_tensor)
             pred_y0 = pred_y0.detach().cpu().numpy()
             auc_y0 = roc_auc_score(y0_test, pred_y0)

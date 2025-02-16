@@ -106,6 +106,7 @@ ps0_entire = sps.csr_matrix((ps0_train, (x0_train[:, 0], x0_train[:, 1])), shape
 num_samples = len(x_all)
 total_batch = num_samples // batch_size
 
+x_test_tensor = torch.LongTensor(x_test).to(device)
 
 # conditional outcome modeling
 model_y1 = SharedNCF(num_users, num_items, embedding_k)
@@ -169,11 +170,12 @@ for epoch in range(1, num_epochs+1):
         sub_ps = ps0_entire[selected_idx]
         sub_ps = torch.Tensor(sub_ps).unsqueeze(-1).to(device)
 
-        pred, ctr, ctcvr = model_y0(sub_x)
+        pred, ctr, _ = model_y0(sub_x)
         rec_loss = nn.functional.binary_cross_entropy(
             nn.Sigmoid()(pred), sub_y, reduction="none")
         rec_loss = torch.mean(rec_loss * sub_t)
         ctr_loss = nn.functional.binary_cross_entropy(nn.Sigmoid()(ctr), 1-sub_t)
+        ctcvr = nn.Sigmoid()(pred) * (1-nn.Sigmoid()(ctr))
         ctcvr_loss = nn.functional.binary_cross_entropy(ctcvr, sub_y)
         total_loss = rec_loss + ctr_loss + ctcvr_loss
 
@@ -205,7 +207,6 @@ for epoch in range(1, num_epochs+1):
         model_y1.eval()
         model_y0.eval()
 
-        x_test_tensor = torch.LongTensor(x_test).to(device)
         pred_y1, _, __ = model_y1(x_test_tensor)
         pred_y0, _, __ = model_y0(x_test_tensor)
         pred_y1 = nn.Sigmoid()(pred_y1).detach().cpu().numpy()
