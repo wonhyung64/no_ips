@@ -26,14 +26,14 @@ parser = argparse.ArgumentParser()
 
 """original""" #end
 parser.add_argument("--dataset-name", type=str, default="original")#[original, personalized]
-parser.add_argument("--lr", type=float, default=1e-3)
+parser.add_argument("--lr", type=float, default=1e-4)
 parser.add_argument("--weight-decay", type=float, default=1e-4)
 
 
 """personalized""" #end
 # parser.add_argument("--dataset-name", type=str, default="personalized")#[original, personalized]
 # parser.add_argument("--lr", type=float, default=1e-3)
-# parser.add_argument("--weight-decay", type=float, default=1e-4)
+# parser.add_argument("--weight-decay", type=float, default=1e-6)
 
 parser.add_argument("--batch-size", type=int, default=4096)
 parser.add_argument("--embedding-k", type=int, default=64)
