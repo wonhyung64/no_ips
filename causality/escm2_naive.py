@@ -28,7 +28,7 @@ parser = argparse.ArgumentParser()
 parser.add_argument("--dataset-name", type=str, default="original")#[original, personalized]
 parser.add_argument("--lr1", type=float, default=1e-3)
 parser.add_argument("--weight-decay1", type=float, default=1e-4)
-parser.add_argument("--lr0", type=float, default=1e-4)
+parser.add_argument("--lr0", type=float, default=1e-3)
 parser.add_argument("--weight-decay0", type=float, default=1e-4)
 
 
