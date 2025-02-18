@@ -42,6 +42,8 @@ parser.add_argument("--random-seed", type=int, default=0)
 parser.add_argument("--evaluate-interval", type=int, default=50)
 parser.add_argument("--top-k-list", type=list, default=[10, 30, 100, 1372])
 parser.add_argument("--data-dir", type=str, default="./data")
+parser.add_argument("--propensity", type=str, default="true")#[pred,true]
+
 try:
     args = parser.parse_args()
 except:
@@ -58,6 +60,7 @@ evaluate_interval = args.evaluate_interval
 top_k_list = args.top_k_list
 data_dir = args.data_dir
 dataset_name = args.dataset_name
+propensity = args.propensity
 
 expt_num = f'{datetime.now().strftime("%y%m%d_%H%M%S_%f")}'
 set_seed(random_seed)
@@ -131,9 +134,13 @@ for epoch in range(1, num_epochs+1):
         sub_t = torch.Tensor(sub_t).unsqueeze(-1).to(device)
         sub_ps = ps1_entire[selected_idx]
         sub_ps = torch.Tensor(sub_ps).unsqueeze(-1).to(device)
-        inv_prop = 1/(sub_ps+1e-9)
 
         pred_y1, pred_y0, ctr= model(sub_x)
+
+        if propensity == "true":
+            inv_prop = 1/(sub_ps+1e-9)
+        elif propensity == "pred":
+            inv_prop = 1 / nn.Sigmoid()(ctr).detach()
 
         rec_loss = nn.functional.binary_cross_entropy(
                 nn.Sigmoid()(pred_y1), sub_y, weight=inv_prop, reduction="none")
@@ -150,7 +157,11 @@ for epoch in range(1, num_epochs+1):
         sub_t = torch.Tensor(sub_t).unsqueeze(-1).to(device)
         sub_ps = ps0_entire[selected_idx]
         sub_ps = torch.Tensor(sub_ps).unsqueeze(-1).to(device)
-        inv_prop = 1/(sub_ps+1e-9)
+
+        if propensity == "true":
+            inv_prop = 1/(sub_ps+1e-9)
+        elif propensity == "pred":
+            inv_prop = 1 / (1-nn.Sigmoid()(ctr).detach())
 
         rec_loss = nn.functional.binary_cross_entropy(
             nn.Sigmoid()(pred_y0), sub_y, weight=inv_prop, reduction="none")

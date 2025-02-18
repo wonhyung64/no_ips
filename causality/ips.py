@@ -46,6 +46,8 @@ parser.add_argument("--random-seed", type=int, default=0)
 parser.add_argument("--evaluate-interval", type=int, default=50)
 parser.add_argument("--top-k-list", type=list, default=[10, 30, 100, 1372])
 parser.add_argument("--data-dir", type=str, default="./data")
+parser.add_argument("--propensity", type=str, default="true")#[pred,true]
+
 try:
     args = parser.parse_args()
 except:
@@ -64,6 +66,7 @@ evaluate_interval = args.evaluate_interval
 top_k_list = args.top_k_list
 data_dir = args.data_dir
 dataset_name = args.dataset_name
+propensity = args.propensity
 
 expt_num = f'{datetime.now().strftime("%y%m%d_%H%M%S_%f")}'
 set_seed(random_seed)
@@ -107,6 +110,46 @@ num_samples = len(x_all)
 total_batch = num_samples // batch_size
 
 
+ps_model = NCF(num_users, num_items, embedding_k)
+ps_model = ps_model.to(device)
+optimizer = torch.optim.Adam(ps_model.parameters(), lr=1e-2, weight_decay=1e-4)
+loss_fcn = torch.nn.BCELoss()
+
+for epoch in range(1, num_epochs+1):
+    ul_idxs = np.arange(x_all.shape[0]) # all
+    np.random.shuffle(ul_idxs)
+    ps_model.train()
+
+    epoch_select_loss = 0.
+
+    for idx in range(total_batch):
+
+        selected_idx = ul_idxs[batch_size*idx:(idx+1)*batch_size]
+        sub_x = x_all[selected_idx]
+        sub_x = torch.LongTensor(sub_x).to(device)
+        sub_t = obs1[selected_idx]
+        sub_t = torch.Tensor(sub_t).unsqueeze(-1).to(device)
+
+        pred, user_embed, item_embed = ps_model(sub_x)
+
+        select_loss = loss_fcn(torch.nn.Sigmoid()(pred), sub_t)
+        epoch_select_loss += select_loss
+
+        optimizer.zero_grad()
+        select_loss.backward()
+        optimizer.step()
+
+    print(f"[Epoch {epoch:>4d} Train Propensity Loss] select: {epoch_select_loss.item():.4f}")
+
+    loss_dict: dict = {
+        'epoch_select_loss': float(epoch_select_loss.item()),
+    }
+
+    wandb_var.log(loss_dict)
+
+
+x_test_tensor = torch.LongTensor(x_test).to(device)
+
 # conditional outcome modeling
 model_y1 = NCF(num_users, num_items, embedding_k)
 model_y1 = model_y1.to(device)
@@ -139,9 +182,15 @@ for epoch in range(1, num_epochs+1):
         sub_t = torch.Tensor(sub_t).unsqueeze(-1).to(device)
         sub_ps = ps1_entire[selected_idx]
         sub_ps = torch.Tensor(sub_ps).unsqueeze(-1).to(device)
-        inv_prop = 1/(sub_ps+1e-9)
 
-        pred, user_embed, item_embed = model_y1(sub_x)
+        ps_pred, _, __ = ps_model(sub_x)
+        pred, _, __ = model_y1(sub_x)
+
+        if propensity == "true":
+            inv_prop = 1/(sub_ps+1e-9)
+        elif propensity == "pred":
+            inv_prop = 1 / nn.Sigmoid()(ps_pred).detach()
+
         rec_loss = nn.functional.binary_cross_entropy(
             nn.Sigmoid()(pred), sub_y, weight=inv_prop, reduction="none")
         rec_loss = torch.mean(rec_loss * sub_t)
@@ -160,9 +209,14 @@ for epoch in range(1, num_epochs+1):
         sub_t = torch.Tensor(sub_t).unsqueeze(-1).to(device)
         sub_ps = ps0_entire[selected_idx]
         sub_ps = torch.Tensor(sub_ps).unsqueeze(-1).to(device)
-        inv_prop = 1/(sub_ps+1e-9)
 
-        pred, user_embed, item_embed = model_y0(sub_x)
+        pred, _, __ = model_y0(sub_x)
+
+        if propensity == "true":
+            inv_prop = 1/(sub_ps+1e-9)
+        elif propensity == "pred":
+            inv_prop = 1 / (1-nn.Sigmoid()(ps_pred).detach())
+
         rec_loss = nn.functional.binary_cross_entropy(
             nn.Sigmoid()(pred), sub_y, weight=inv_prop, reduction="none")
         rec_loss = torch.mean(rec_loss * sub_t)
@@ -190,7 +244,6 @@ for epoch in range(1, num_epochs+1):
         model_y1.eval()
         model_y0.eval()
 
-        x_test_tensor = torch.LongTensor(x_test).to(device)
         pred_y1, _, __ = model_y1(x_test_tensor)
         pred_y0, _, __ = model_y0(x_test_tensor)
         pred_y1 = nn.Sigmoid()(pred_y1).detach().cpu().numpy()

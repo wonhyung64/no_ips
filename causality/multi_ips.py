@@ -45,6 +45,8 @@ parser.add_argument("--random-seed", type=int, default=0)
 parser.add_argument("--evaluate-interval", type=int, default=50)
 parser.add_argument("--top-k-list", type=list, default=[10, 30, 100, 1372])
 parser.add_argument("--data-dir", type=str, default="./data")
+parser.add_argument("--propensity", type=str, default="true")#[pred,true]
+
 try:
     args = parser.parse_args()
 except:
@@ -63,6 +65,7 @@ evaluate_interval = args.evaluate_interval
 top_k_list = args.top_k_list
 data_dir = args.data_dir
 dataset_name = args.dataset_name
+propensity = args.propensity
 
 expt_num = f'{datetime.now().strftime("%y%m%d_%H%M%S_%f")}'
 set_seed(random_seed)
@@ -105,6 +108,7 @@ ps0_entire = sps.csr_matrix((ps0_train, (x0_train[:, 0], x0_train[:, 1])), shape
 num_samples = len(x_all)
 total_batch = num_samples // batch_size
 
+x_test_tensor = torch.LongTensor(x_test).to(device)
 
 # conditional outcome modeling
 model_y1 = SharedNCF(num_users, num_items, embedding_k)
@@ -140,9 +144,14 @@ for epoch in range(1, num_epochs+1):
         sub_t = torch.Tensor(sub_t).unsqueeze(-1).to(device)
         sub_ps = ps1_entire[selected_idx]
         sub_ps = torch.Tensor(sub_ps).unsqueeze(-1).to(device)
-        inv_prop = 1/(sub_ps+1e-9)
 
         pred, ctr, _ = model_y1(sub_x)
+
+        if propensity == "true":
+            inv_prop = 1/(sub_ps+1e-9)
+        elif propensity == "pred":
+            inv_prop = 1 / nn.Sigmoid()(ctr).detach()
+
         rec_loss = nn.functional.binary_cross_entropy(
             nn.Sigmoid()(pred), sub_y, weight=inv_prop, reduction="none")
         rec_loss = torch.mean(rec_loss * sub_t)
@@ -167,6 +176,12 @@ for epoch in range(1, num_epochs+1):
         inv_prop = 1/(sub_ps+1e-9)
 
         pred, ctr, _ = model_y0(sub_x)
+
+        if propensity == "true":
+            inv_prop = 1/(sub_ps+1e-9)
+        elif propensity == "pred":
+            inv_prop = 1 / (1-nn.Sigmoid()(ctr).detach())
+
         rec_loss = nn.functional.binary_cross_entropy(
             nn.Sigmoid()(pred), sub_y, weight=inv_prop, reduction="none")
         rec_loss = torch.mean(rec_loss * sub_t)
@@ -198,7 +213,6 @@ for epoch in range(1, num_epochs+1):
         model_y1.eval()
         model_y0.eval()
 
-        x_test_tensor = torch.LongTensor(x_test).to(device)
         pred_y1, _, __ = model_y1(x_test_tensor)
         pred_y0, _, __ = model_y0(x_test_tensor)
         pred_y1 = nn.Sigmoid()(pred_y1).detach().cpu().numpy()

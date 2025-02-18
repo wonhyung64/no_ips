@@ -38,6 +38,8 @@ parser.add_argument("--random-seed", type=int, default=0)
 parser.add_argument("--evaluate-interval", type=int, default=50)
 parser.add_argument("--top-k-list", type=list, default=[1,3,5,7,10,100])
 parser.add_argument("--data-dir", type=str, default="../data")
+parser.add_argument("--propensity", type=str, default="true")#[pred,true]
+
 try:
     args = parser.parse_args()
 except:
@@ -54,6 +56,7 @@ top_k_list = args.top_k_list
 data_dir = args.data_dir
 dataset_name = args.dataset_name
 loss_type = args.loss_type
+propensity = args.propensity
 
 expt_num = f'{datetime.now().strftime("%y%m%d_%H%M%S_%f")}'
 set_seed(random_seed)
@@ -151,10 +154,15 @@ for cv_num, (train_idx, test_idx) in enumerate(kf.split(x_train)):
             sub_t = torch.Tensor(sub_t).unsqueeze(-1).to(device)
             sub_ps = ps1_entire[selected_idx]
             sub_ps = torch.Tensor(sub_ps).unsqueeze(-1).to(device)
-            if loss_type == "ips":
-                inv_prop = 1/(sub_ps+1e-9)
 
             pred, ctr, ctcvr = model_y1(sub_x)
+
+            if loss_type == "ips":
+                if propensity == "true":
+                    inv_prop = 1/(sub_ps+1e-9)
+                elif propensity == "pred":
+                    inv_prop = 1 / nn.Sigmoid()(ctr).detach()
+
             rec_loss = nn.functional.binary_cross_entropy(
                 nn.Sigmoid()(pred), sub_y, weight=inv_prop, reduction="none")
             rec_loss = torch.mean(rec_loss * sub_t)
@@ -178,10 +186,14 @@ for cv_num, (train_idx, test_idx) in enumerate(kf.split(x_train)):
             sub_t = torch.Tensor(sub_t).unsqueeze(-1).to(device)
             sub_ps = ps0_entire[selected_idx]
             sub_ps = torch.Tensor(sub_ps).unsqueeze(-1).to(device)
-            if loss_type == "ips":
-                inv_prop = 1/(sub_ps+1e-9)
 
             pred, ctr, _ = model_y0(sub_x)
+            if loss_type == "ips":
+                if propensity == "true":
+                    inv_prop = 1/(sub_ps+1e-9)
+                elif propensity == "pred":
+                    inv_prop = 1 / (1-nn.Sigmoid()(ctr).detach())
+
             ctcvr = nn.Sigmoid()(pred) * (1-nn.Sigmoid()(ctr))
 
             rec_loss = nn.functional.binary_cross_entropy(

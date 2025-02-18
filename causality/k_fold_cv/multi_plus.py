@@ -38,6 +38,8 @@ parser.add_argument("--random-seed", type=int, default=0)
 parser.add_argument("--evaluate-interval", type=int, default=50)
 parser.add_argument("--top-k-list", type=list, default=[1,3,5,7,10,100])
 parser.add_argument("--data-dir", type=str, default="../data")
+parser.add_argument("--propensity", type=str, default="true")#[pred,true]
+
 try:
     args = parser.parse_args()
 except:
@@ -54,6 +56,7 @@ top_k_list = args.top_k_list
 data_dir = args.data_dir
 dataset_name = args.dataset_name
 loss_type = args.loss_type
+propensity = args.propensity
 
 expt_num = f'{datetime.now().strftime("%y%m%d_%H%M%S_%f")}'
 set_seed(random_seed)
@@ -110,6 +113,9 @@ for cv_num, (train_idx, test_idx) in enumerate(kf.split(x_train)):
     num_samples = len(x_all)
     total_batch = num_samples // batch_size
 
+    x1_test_tensor = torch.LongTensor(x1_test).to(device)
+    x0_test_tensor = torch.LongTensor(x0_test).to(device)
+
     # conditional outcome modeling
     model = SharedNCFPlus(num_users, num_items, embedding_k)
     model = model.to(device)
@@ -139,10 +145,14 @@ for cv_num, (train_idx, test_idx) in enumerate(kf.split(x_train)):
             sub_t = torch.Tensor(sub_t).unsqueeze(-1).to(device)
             sub_ps = ps1_entire[selected_idx]
             sub_ps = torch.Tensor(sub_ps).unsqueeze(-1).to(device)
-            if loss_type == "ips":
-                inv_prop = 1/(sub_ps+1e-9)
 
             pred_y1, pred_y0, ctr = model(sub_x)
+
+            if loss_type == "ips":
+                if propensity == "true":
+                    inv_prop = 1/(sub_ps+1e-9)
+                elif propensity == "pred":
+                    inv_prop = 1 / nn.Sigmoid()(ctr).detach()
 
             rec_loss = nn.functional.binary_cross_entropy(
                 nn.Sigmoid()(pred_y1), sub_y, weight=inv_prop, reduction="none")
@@ -158,8 +168,12 @@ for cv_num, (train_idx, test_idx) in enumerate(kf.split(x_train)):
             sub_t = torch.Tensor(sub_t).unsqueeze(-1).to(device)
             sub_ps = ps0_entire[selected_idx]
             sub_ps = torch.Tensor(sub_ps).unsqueeze(-1).to(device)
+
             if loss_type == "ips":
-                inv_prop = 1/(sub_ps+1e-9)
+                if propensity == "true":
+                    inv_prop = 1/(sub_ps+1e-9)
+                elif propensity == "pred":
+                    inv_prop = 1 / (1-nn.Sigmoid()(ctr).detach())
 
             rec_loss = nn.functional.binary_cross_entropy(
                 nn.Sigmoid()(pred_y0), sub_y, weight=inv_prop, reduction="none")
@@ -187,12 +201,10 @@ for cv_num, (train_idx, test_idx) in enumerate(kf.split(x_train)):
         if epoch % evaluate_interval == 0:
             model.eval()
 
-            x1_test_tensor = torch.LongTensor(x1_test).to(device)
             pred_y1, _, __ = model(x1_test_tensor)
             pred_y1 = pred_y1.detach().cpu().numpy()
             auc_y1 = roc_auc_score(y1_test, pred_y1)
 
-            x0_test_tensor = torch.LongTensor(x0_test).to(device)
             _, pred_y0, __ = model(x0_test_tensor)
             pred_y0 = pred_y0.detach().cpu().numpy()
             auc_y0 = roc_auc_score(y0_test, pred_y0)
