@@ -9,7 +9,7 @@ import torch.nn as nn
 import scipy.sparse as sps
 from datetime import datetime
 
-from module.model import NCFPlus
+from module.model import NCFPlus, NCF
 from module.metric import cdcg_func, car_func, cp_func, ncdcg_func
 from module.dataset import load_data, generate_total_sample
 from module.utils import set_device, set_seed
