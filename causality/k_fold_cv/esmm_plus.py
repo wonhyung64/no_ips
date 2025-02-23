@@ -37,6 +37,8 @@ parser.add_argument("--random-seed", type=int, default=0)
 parser.add_argument("--evaluate-interval", type=int, default=50)
 parser.add_argument("--top-k-list", type=list, default=[1,3,5,7,10,100])
 parser.add_argument("--data-dir", type=str, default="../data")
+parser.add_argument("--alpha", type=float, default=1.) # [2., 1., 0.1, 0.01, 0.001]
+
 try:
     args = parser.parse_args()
 except:
@@ -52,6 +54,7 @@ evaluate_interval = args.evaluate_interval
 top_k_list = args.top_k_list
 data_dir = args.data_dir
 dataset_name = args.dataset_name
+alpha = args.alpha
 
 expt_num = f'{datetime.now().strftime("%y%m%d_%H%M%S_%f")}'
 set_seed(random_seed)
@@ -140,7 +143,7 @@ for cv_num, (train_idx, test_idx) in enumerate(kf.split(x_train)):
 
             pred_y1, pred_y0, ctr = model(sub_x)
 
-            ctr_loss = nn.functional.binary_cross_entropy(nn.Sigmoid()(ctr), sub_t)
+            ctr_loss = nn.functional.binary_cross_entropy(nn.Sigmoid()(ctr), sub_t) * alpha
 
             ctcvr = nn.Sigmoid()(pred_y1) * nn.Sigmoid()(ctr)
             y1_ctcvr_loss = nn.functional.binary_cross_entropy(ctcvr, sub_y)

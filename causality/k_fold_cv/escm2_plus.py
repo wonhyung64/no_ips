@@ -39,6 +39,7 @@ parser.add_argument("--evaluate-interval", type=int, default=50)
 parser.add_argument("--top-k-list", type=list, default=[1,3,5,7,10,100])
 parser.add_argument("--data-dir", type=str, default="../data")
 parser.add_argument("--propensity", type=str, default="true")#[pred,true]
+parser.add_argument("--alpha", type=float, default=1.) # [2., 1., 0.1, 0.01, 0.001]
 
 try:
     args = parser.parse_args()
@@ -57,6 +58,8 @@ data_dir = args.data_dir
 dataset_name = args.dataset_name
 loss_type = args.loss_type
 propensity = args.propensity
+alpha = args.alpha
+beta = args.beta
 
 expt_num = f'{datetime.now().strftime("%y%m%d_%H%M%S_%f")}'
 set_seed(random_seed)
@@ -161,9 +164,9 @@ for cv_num, (train_idx, test_idx) in enumerate(kf.split(x_train)):
                 nn.Sigmoid()(pred_y1), sub_y, weight=inv_prop, reduction="none")
             y1_loss = torch.mean(rec_loss * sub_t)
 
-            ctr_loss = nn.functional.binary_cross_entropy(nn.Sigmoid()(ctr), sub_t)
+            ctr_loss = nn.functional.binary_cross_entropy(nn.Sigmoid()(ctr), sub_t) * alpha
 
-            ctcvr = nn.Sigmoid()(pred_y1) * nn.Sigmoid()(ctr)
+            ctcvr = nn.Sigmoid()(pred_y1) * nn.Sigmoid()(ctr) * beta
             y1_ctcvr_loss = nn.functional.binary_cross_entropy(ctcvr, sub_y)
 
             sub_y = y0_entire[selected_idx]
@@ -181,7 +184,7 @@ for cv_num, (train_idx, test_idx) in enumerate(kf.split(x_train)):
                 nn.Sigmoid()(pred_y0), sub_y, weight=inv_prop, reduction="none")
             y0_loss = torch.mean(rec_loss * sub_t)
 
-            ctcvr = nn.Sigmoid()(pred_y0) * (1-nn.Sigmoid()(ctr))
+            ctcvr = nn.Sigmoid()(pred_y0) * (1-nn.Sigmoid()(ctr)) * beta
             y0_ctcvr_loss = nn.functional.binary_cross_entropy(ctcvr, sub_y)
 
             total_loss = y1_loss + y0_loss + ctr_loss + y1_ctcvr_loss + y0_ctcvr_loss
