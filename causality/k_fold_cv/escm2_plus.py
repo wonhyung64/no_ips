@@ -40,6 +40,7 @@ parser.add_argument("--top-k-list", type=list, default=[1,3,5,7,10,100])
 parser.add_argument("--data-dir", type=str, default="../data")
 parser.add_argument("--propensity", type=str, default="true")#[pred,true]
 parser.add_argument("--alpha", type=float, default=1.) # [2., 1., 0.1, 0.01, 0.001]
+parser.add_argument("--beta", type=float, default=1.) # [2., 1., 0.1, 0.01, 0.001]
 
 try:
     args = parser.parse_args()
