@@ -44,7 +44,7 @@ class NCF(nn.Module):
 
 class DeeperNCF(nn.Module):
     def __init__(self, num_users, num_items, embedding_k):
-        super(NCF, self).__init__()
+        super(DeeperNCF, self).__init__()
         self.num_users = num_users
         self.num_items = num_items
         self.embedding_k = embedding_k
