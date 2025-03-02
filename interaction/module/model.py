@@ -42,6 +42,36 @@ class NCF(nn.Module):
         return out, user_embed, item_embed
 
 
+class DeeperNCF(nn.Module):
+    def __init__(self, num_users, num_items, embedding_k):
+        super(NCF, self).__init__()
+        self.num_users = num_users
+        self.num_items = num_items
+        self.embedding_k = embedding_k
+        self.user_embedding = nn.Embedding(self.num_users, self.embedding_k)
+        self.item_embedding = nn.Embedding(self.num_items, self.embedding_k)
+        self.linear1 = nn.Linear(self.embedding_k*2, self.embedding_k)
+        self.linear2 = nn.Linear(self.embedding_k, self.embedding_k//2)
+        self.linear3 = nn.Linear(self.embedding_k//2, self.embedding_k//4)
+        self.linear4 = nn.Linear(self.embedding_k//4, self.embedding_k//8)
+        self.linear5 = nn.Linear(self.embedding_k//8, self.embedding_k//16)
+        self.linear6 = nn.Linear(self.embedding_k//16, 1, bias=False)
+
+    def forward(self, x):
+        user_idx = x[:,0]
+        item_idx = x[:,1]
+        user_embed = self.user_embedding(user_idx)
+        item_embed = self.item_embedding(item_idx)
+        z_embed = torch.cat([user_embed, item_embed], axis=1)
+        h1 = nn.ReLU()(self.linear1(z_embed))
+        h2 = nn.ReLU()(self.linear2(h1))
+        h3 = nn.ReLU()(self.linear3(h2))
+        h4 = nn.ReLU()(self.linear4(h3))
+        h5 = nn.ReLU()(self.linear5(h4))
+        out = self.linear6(h5)
+        return out, user_embed, item_embed
+
+
 class LinearCF(nn.Module):
     """The neural collaborative filtering method.
     """
