@@ -68,7 +68,7 @@ device = set_device()
 configs = vars(args)
 configs["device"] = device
 wandb_var = wandb.init(project="no_ips", config=configs)
-wandb.run.name = f"depper_ips_{expt_num}"
+wandb.run.name = f"depper2_ips_{expt_num}"
 
 
 # DATA LOADER
