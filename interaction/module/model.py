@@ -53,10 +53,10 @@ class DeeperNCF(nn.Module):
         self.linear1 = nn.Linear(self.embedding_k*2, self.embedding_k)
         self.linear2 = nn.Linear(self.embedding_k, self.embedding_k//2)
         self.linear3 = nn.Linear(self.embedding_k//2, self.embedding_k//4)
-        # self.linear4 = nn.Linear(self.embedding_k//4, self.embedding_k//8)
+        self.linear4 = nn.Linear(self.embedding_k//4, self.embedding_k//8)
         # self.linear5 = nn.Linear(self.embedding_k//8, self.embedding_k//16)
 
-        self.linear_last = nn.Linear(self.embedding_k//4, 1, bias=False)
+        self.linear_last = nn.Linear(self.embedding_k//8, 1, bias=False)
 
     def forward(self, x):
         user_idx = x[:,0]
@@ -67,7 +67,7 @@ class DeeperNCF(nn.Module):
         h = nn.ReLU()(self.linear1(z_embed))
         h = nn.ReLU()(self.linear2(h))
         h = nn.ReLU()(self.linear3(h))
-        # h = nn.ReLU()(self.linear4(h))
+        h = nn.ReLU()(self.linear4(h))
         # h = nn.ReLU()(self.linear5(h))
         out = self.linear_last(h)
         return out, user_embed, item_embed
