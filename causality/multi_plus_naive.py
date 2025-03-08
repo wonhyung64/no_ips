@@ -28,11 +28,13 @@ parser = argparse.ArgumentParser()
 parser.add_argument("--dataset-name", type=str, default="original")#[original, personalized]
 parser.add_argument("--lr", type=float, default=1e-4)
 parser.add_argument("--weight-decay", type=float, default=1e-4)
+parser.add_argument("--alpha", type=float, default=0.1)
 
 # """personalized""" # end
 # parser.add_argument("--dataset-name", type=str, default="personalized")#[original, personalized]
 # parser.add_argument("--lr", type=float, default=1e-4)
 # parser.add_argument("--weight-decay", type=float, default=1e-4)
+# parser.add_argument("--alpha", type=float, default=2.)
 
 parser.add_argument("--batch-size", type=int, default=4096)
 parser.add_argument("--embedding-k", type=int, default=64)
@@ -57,6 +59,7 @@ evaluate_interval = args.evaluate_interval
 top_k_list = args.top_k_list
 data_dir = args.data_dir
 dataset_name = args.dataset_name
+alpha = args.alpha
 
 expt_num = f'{datetime.now().strftime("%y%m%d_%H%M%S_%f")}'
 set_seed(random_seed)
@@ -133,7 +136,7 @@ for epoch in range(1, num_epochs+1):
         y1_loss = torch.mean(rec_loss * sub_t)
         epoch_y1_loss += y1_loss
 
-        ctr_loss = nn.functional.binary_cross_entropy(nn.Sigmoid()(ctr), sub_t)
+        ctr_loss = nn.functional.binary_cross_entropy(nn.Sigmoid()(ctr), sub_t) * alpha
         epoch_t_loss += ctr_loss
 
         sub_y = y0_entire[selected_idx]

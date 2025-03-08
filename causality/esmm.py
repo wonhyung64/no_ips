@@ -27,9 +27,11 @@ parser = argparse.ArgumentParser()
 """original"""#end
 parser.add_argument("--dataset-name", type=str, default="original")#[original, personalized]
 parser.add_argument("--lr1", type=float, default=1e-4)
-parser.add_argument("--weight-decay1", type=float, default=1e-4)
 parser.add_argument("--lr0", type=float, default=1e-4)
+parser.add_argument("--weight-decay1", type=float, default=1e-4)
 parser.add_argument("--weight-decay0", type=float, default=1e-4)
+parser.add_argument("--alpha1", type=float, default=0.1)
+parser.add_argument("--alpha0", type=float, default=1.)
 
 
 """personalized"""#end
@@ -38,6 +40,8 @@ parser.add_argument("--weight-decay0", type=float, default=1e-4)
 # parser.add_argument("--lr0", type=float, default=1e-4)
 # parser.add_argument("--weight-decay1", type=float, default=1e-4)
 # parser.add_argument("--weight-decay0", type=float, default=1e-4)
+# parser.add_argument("--alpha1", type=float, default=2.)
+# parser.add_argument("--alpha0", type=float, default=1.)
 
 parser.add_argument("--batch-size", type=int, default=4096)
 parser.add_argument("--embedding-k", type=int, default=64)
@@ -46,6 +50,7 @@ parser.add_argument("--random-seed", type=int, default=0)
 parser.add_argument("--evaluate-interval", type=int, default=50)
 parser.add_argument("--top-k-list", type=list, default=[10, 30, 100, 1372])
 parser.add_argument("--data-dir", type=str, default="./data")
+
 try:
     args = parser.parse_args()
 except:
@@ -55,6 +60,8 @@ lr1 = args.lr1
 lr0 = args.lr0
 weight_decay1 = args.weight_decay1
 weight_decay0 = args.weight_decay0
+alpha1 = args.alpha1
+alpha0 = args.alpha0
 
 embedding_k = args.embedding_k
 batch_size = args.batch_size
@@ -142,7 +149,7 @@ for epoch in range(1, num_epochs+1):
         sub_t = torch.Tensor(sub_t).unsqueeze(-1).to(device)
 
         pred, ctr, ctcvr = model_y1(sub_x)
-        ctr_loss = nn.functional.binary_cross_entropy(nn.Sigmoid()(ctr), sub_t)
+        ctr_loss = nn.functional.binary_cross_entropy(nn.Sigmoid()(ctr), sub_t) * alpha1
         ctcvr_loss = nn.functional.binary_cross_entropy(ctcvr, sub_y)
 
         total_loss = ctr_loss + ctcvr_loss
@@ -161,7 +168,7 @@ for epoch in range(1, num_epochs+1):
         sub_t = torch.Tensor(sub_t).unsqueeze(-1).to(device)
 
         pred, ctr, _ = model_y0(sub_x)
-        ctr_loss = nn.functional.binary_cross_entropy(nn.Sigmoid()(ctr), 1-sub_t)
+        ctr_loss = nn.functional.binary_cross_entropy(nn.Sigmoid()(ctr), 1-sub_t) * alpha0
         ctcvr = nn.Sigmoid()(pred) * (1-nn.Sigmoid()(ctr))
         ctcvr_loss = nn.functional.binary_cross_entropy(ctcvr, sub_y)
         total_loss = ctr_loss + ctcvr_loss

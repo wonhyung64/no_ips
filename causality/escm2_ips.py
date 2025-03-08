@@ -30,6 +30,12 @@ parser.add_argument("--lr1", type=float, default=1e-4)
 parser.add_argument("--lr0", type=float, default=1e-3)
 parser.add_argument("--weight-decay1", type=float, default=1e-4)
 parser.add_argument("--weight-decay0", type=float, default=1e-4)
+parser.add_argument("--alpha1", type=float, default=0.001)
+parser.add_argument("--alpha0", type=float, default=0.1)
+parser.add_argument("--beta1", type=float, default=0.1)
+parser.add_argument("--beta0", type=float, default=1.)
+
+
 
 """personalized"""
 # parser.add_argument("--dataset-name", type=str, default="personalized")#[original, personalized]
@@ -37,6 +43,10 @@ parser.add_argument("--weight-decay0", type=float, default=1e-4)
 # parser.add_argument("--lr0", type=float, default=1e-3)
 # parser.add_argument("--weight-decay1", type=float, default=1e-4)
 # parser.add_argument("--weight-decay0", type=float, default=1e-4)
+# parser.add_argument("--alpha1", type=float, default=0.001)
+# parser.add_argument("--alpha0", type=float, default=0.1)
+# parser.add_argument("--beta1", type=float, default=0.1)
+# parser.add_argument("--beta0", type=float, default=0.001)
 
 parser.add_argument("--batch-size", type=int, default=4096)
 parser.add_argument("--embedding-k", type=int, default=64)
@@ -56,6 +66,10 @@ lr1 = args.lr1
 lr0 = args.lr0
 weight_decay1 = args.weight_decay1
 weight_decay0 = args.weight_decay0
+alpha1 = args.alpha1
+alpha0 = args.alpha0
+beta1 = args.beta1
+beta0 = args.beta0
 
 embedding_k = args.embedding_k
 batch_size = args.batch_size
@@ -157,8 +171,8 @@ for epoch in range(1, num_epochs+1):
         rec_loss = nn.functional.binary_cross_entropy(
             nn.Sigmoid()(pred), sub_y, weight=inv_prop, reduction="none")
         rec_loss = torch.mean(rec_loss * sub_t)
-        ctr_loss = nn.functional.binary_cross_entropy(nn.Sigmoid()(ctr), sub_t)
-        ctcvr_loss = nn.functional.binary_cross_entropy(ctcvr, sub_y)
+        ctr_loss = nn.functional.binary_cross_entropy(nn.Sigmoid()(ctr), sub_t) * alpha1
+        ctcvr_loss = nn.functional.binary_cross_entropy(ctcvr, sub_y) * beta1
 
         total_loss = rec_loss + ctr_loss + ctcvr_loss
 
@@ -189,9 +203,9 @@ for epoch in range(1, num_epochs+1):
         rec_loss = nn.functional.binary_cross_entropy(
             nn.Sigmoid()(pred), sub_y, weight=inv_prop, reduction="none")
         rec_loss = torch.mean(rec_loss * sub_t)
-        ctr_loss = nn.functional.binary_cross_entropy(nn.Sigmoid()(ctr), 1-sub_t)
+        ctr_loss = nn.functional.binary_cross_entropy(nn.Sigmoid()(ctr), 1-sub_t) * alpha0
         ctcvr = nn.Sigmoid()(pred) * (1-nn.Sigmoid()(ctr))
-        ctcvr_loss = nn.functional.binary_cross_entropy(ctcvr, sub_y)
+        ctcvr_loss = nn.functional.binary_cross_entropy(ctcvr, sub_y) * beta0
         total_loss = rec_loss + ctr_loss + ctcvr_loss
 
         epoch_y0_loss += rec_loss

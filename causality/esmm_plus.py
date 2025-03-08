@@ -28,12 +28,14 @@ parser = argparse.ArgumentParser()
 parser.add_argument("--dataset-name", type=str, default="original")#[original, personalized]
 parser.add_argument("--lr", type=float, default=1e-4)
 parser.add_argument("--weight-decay", type=float, default=1e-4)
+parser.add_argument("--alpha", type=float, default=1.)
 
 
 """personalized""" #end
 # parser.add_argument("--dataset-name", type=str, default="personalized")#[original, personalized]
 # parser.add_argument("--lr", type=float, default=1e-4)
 # parser.add_argument("--weight-decay", type=float, default=1e-4)
+# parser.add_argument("--alpha", type=float, default=2.)
 
 parser.add_argument("--batch-size", type=int, default=4096)
 parser.add_argument("--embedding-k", type=int, default=64)
@@ -42,6 +44,7 @@ parser.add_argument("--random-seed", type=int, default=0)
 parser.add_argument("--evaluate-interval", type=int, default=50)
 parser.add_argument("--top-k-list", type=list, default=[10, 30, 100, 1372])
 parser.add_argument("--data-dir", type=str, default="./data")
+
 try:
     args = parser.parse_args()
 except:
@@ -58,6 +61,7 @@ evaluate_interval = args.evaluate_interval
 top_k_list = args.top_k_list
 data_dir = args.data_dir
 dataset_name = args.dataset_name
+alpha = args.alpha
 
 expt_num = f'{datetime.now().strftime("%y%m%d_%H%M%S_%f")}'
 set_seed(random_seed)
@@ -130,7 +134,7 @@ for epoch in range(1, num_epochs+1):
 
         pred_y1, pred_y0, ctr = model(sub_x)
 
-        ctr_loss = nn.functional.binary_cross_entropy(nn.Sigmoid()(ctr), sub_t)
+        ctr_loss = nn.functional.binary_cross_entropy(nn.Sigmoid()(ctr), sub_t) * alpha
 
         ctcvr = nn.Sigmoid()(pred_y1) * nn.Sigmoid()(ctr)
         y1_ctcvr_loss = nn.functional.binary_cross_entropy(ctcvr, sub_y)
