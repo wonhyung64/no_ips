@@ -73,7 +73,7 @@ device = set_device()
 configs = vars(args)
 configs["device"] = device
 wandb_var = wandb.init(project="no_ips", config=configs)
-wandb.run.name = f"multi_naive_{expt_num}"
+wandb.run.name = f"multi_naive_interaction_{expt_num}"
 
 # DATA LOADER
 x_train, x_test = load_data(data_dir, dataset_name)
@@ -121,14 +121,14 @@ for epoch in range(1, num_epochs+1):
         sub_t = torch.Tensor(sub_t).unsqueeze(-1).to(device)
 
         pred, ctr, ctcvr = model(sub_x)
-        ctr_loss = F.binary_cross_entropy(nn.Sigmoid()(ctr), sub_t)
+        ctr_loss = F.binary_cross_entropy(nn.Sigmoid()(ctr), sub_t) * alpha
         rec_loss = F.binary_cross_entropy(
             torch.nn.Sigmoid()(pred), sub_y, reduction="none") 
         rec_loss = (rec_loss * sub_t).mean()
         epoch_rec_loss += rec_loss
         epoch_ctr_loss += ctr_loss
 
-        total_loss = rec_loss + ctr_loss * alpha
+        total_loss = rec_loss + ctr_loss
         epoch_total_loss += total_loss
 
         optimizer.zero_grad()

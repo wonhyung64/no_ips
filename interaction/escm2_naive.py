@@ -7,14 +7,14 @@ import subprocess
 import numpy as np
 import torch.nn as nn
 import scipy.sparse as sps
-from datetime import datetime
 import torch.nn.functional as F
+from datetime import datetime
 from sklearn.metrics import roc_auc_score
 
 from module.model import SharedNCF
 from module.metric import ndcg_func, recall_func, ap_func
-from module.dataset import binarize, load_data, generate_total_sample
-from module.utils import set_device, set_seed
+from module.utils import set_seed, set_device
+from module.dataset import binarize, generate_total_sample, load_data
 
 try:
     import wandb
@@ -23,30 +23,33 @@ except:
     import wandb
 
 
-#%%
 # SETTINGS
 parser = argparse.ArgumentParser()
 
 """coat"""
-parser.add_argument("--alpha", type=float, default=1.)
+parser.add_argument("--embedding-k", type=int, default=64)
 parser.add_argument("--lr", type=float, default=1e-3)
-parser.add_argument("--weight-decay", type=float, default=1e-5)
+parser.add_argument("--weight-decay", type=float, default=1e-4)
 parser.add_argument("--batch-size", type=int, default=4096)
 parser.add_argument("--dataset-name", type=str, default="coat")
 
 """yahoo"""
-# parser.add_argument("--alpha", type=float, default=1.)
+# parser.add_argument("--embedding-k", type=int, default=64)
 # parser.add_argument("--lr", type=float, default=1e-4)
-# parser.add_argument("--weight-decay", type=float, default=1e-6)
+# parser.add_argument("--weight-decay", type=float, default=1e-4)
 # parser.add_argument("--batch-size", type=int, default=8192)
 # parser.add_argument("--dataset-name", type=str, default="yahoo_r3")
 
-parser.add_argument("--embedding-k", type=int, default=64)
 parser.add_argument("--num-epochs", type=int, default=1000)
 parser.add_argument("--random-seed", type=int, default=0)
 parser.add_argument("--evaluate-interval", type=int, default=50)
 parser.add_argument("--top-k-list", type=list, default=[1,3,5,7,10])
-parser.add_argument("--data-dir", type=str, default="../data")
+parser.add_argument("--data-dir", type=str, default="./data")
+
+parser.add_argument("--alpha", type=float, default=1.)
+parser.add_argument("--beta", type=float, default=0.1)
+parser.add_argument("--G", type=int, default=1)
+
 try:
     args = parser.parse_args()
 except:
@@ -63,6 +66,8 @@ top_k_list = args.top_k_list
 data_dir = args.data_dir
 dataset_name = args.dataset_name
 alpha = args.alpha
+beta = args.beta
+G = args.G
 
 expt_num = f'{datetime.now().strftime("%y%m%d_%H%M%S_%f")}'
 set_seed(random_seed)
@@ -73,11 +78,11 @@ device = set_device()
 configs = vars(args)
 configs["device"] = device
 wandb_var = wandb.init(project="no_ips", config=configs)
-wandb.run.name = f"multi_ips_interaction_{expt_num}"
+wandb.run.name = f"escm2_naive_interaction_{expt_num}"
+
 
 # DATA LOADER
 x_train, x_test = load_data(data_dir, dataset_name)
-
 x_train, y_train = x_train[:,:-1], x_train[:,-1]
 x_test, y_test = x_test[:, :-1], x_test[:,-1]
 
@@ -99,37 +104,38 @@ total_batch = num_samples // batch_size
 model = SharedNCF(num_users, num_items, embedding_k)
 model = model.to(device)
 optimizer = torch.optim.Adam(model.parameters(), lr=lr, weight_decay=weight_decay)
-x_test_tensor = torch.LongTensor(x_test-1).to(device)
+loss_fcn = torch.nn.BCELoss()
 
 for epoch in range(1, num_epochs+1):
+
     ul_idxs = np.arange(x_all.shape[0]) # all
     np.random.shuffle(ul_idxs)
     model.train()
 
-    epoch_total_loss = 0.
-    epoch_rec_loss = 0.
     epoch_ctr_loss = 0.
+    epoch_cvr_loss = 0.
+    epoch_ctcvr_loss = 0.
+    epoch_total_loss = 0.
 
     for idx in range(total_batch):
 
-        selected_idx = ul_idxs[batch_size*idx:(idx+1)*batch_size]
-        sub_x = x_all[selected_idx]
-        sub_x = torch.LongTensor(sub_x).to(device)
-        sub_y = y_entire[selected_idx]
-        sub_y = torch.Tensor(sub_y).unsqueeze(-1).to(device)
-        sub_t = obs[selected_idx]
-        sub_t = torch.Tensor(sub_t).unsqueeze(-1).to(device)
+        x_all_idx = ul_idxs[G*idx* batch_size : G*(idx+1)*batch_size]
+        x_sampled = x_all[x_all_idx]
+        x_sampled = torch.LongTensor(x_sampled).to(device)
+        sub_obs = torch.Tensor(obs[x_all_idx]).unsqueeze(-1).to(device)
+        sub_entire_y = torch.Tensor(y_entire[x_all_idx]).unsqueeze(-1).to(device)
 
-        pred, ctr, ctcvr = model(sub_x)
-        inv_prop = 1/torch.nn.Sigmoid()(ctr).detach()
-        ctr_loss = F.binary_cross_entropy(nn.Sigmoid()(ctr), sub_t) * alpha
-        rec_loss = F.binary_cross_entropy(
-            torch.nn.Sigmoid()(pred), sub_y, weight=inv_prop, reduction='none') 
-        rec_loss = (rec_loss * sub_t).mean()
-        epoch_rec_loss += rec_loss
+        pred_cvr, pred_ctr, pred_ctcvr = model(x_sampled)
+        ctr_loss = loss_fcn(nn.Sigmoid()(pred_ctr), sub_obs) * alpha
+        ctcvr_loss = loss_fcn(pred_ctcvr, sub_entire_y) * beta
+        cvr_loss = F.binary_cross_entropy(nn.Sigmoid()(pred_cvr), sub_entire_y, reduction="none")
+        cvr_loss = (cvr_loss * sub_obs).mean()
+
+        total_loss = ctr_loss + ctcvr_loss + cvr_loss
+
         epoch_ctr_loss += ctr_loss
-
-        total_loss = rec_loss + ctr_loss
+        epoch_cvr_loss += cvr_loss
+        epoch_ctcvr_loss += ctcvr_loss
         epoch_total_loss += total_loss
 
         optimizer.zero_grad()
@@ -139,8 +145,9 @@ for epoch in range(1, num_epochs+1):
     print(f"[Epoch {epoch:>4d} Train Loss] rec: {epoch_total_loss.item():.4f}")
 
     loss_dict: dict = {
-        'epoch_rec_loss': float(epoch_rec_loss.item()),
         'epoch_ctr_loss': float(epoch_ctr_loss.item()),
+        'epoch_cvr_loss': float(epoch_ctr_loss.item()),
+        'epoch_ctcvr_loss': float(epoch_ctcvr_loss.item()),
         'epoch_total_loss': float(epoch_total_loss.item()),
     }
 
@@ -148,8 +155,9 @@ for epoch in range(1, num_epochs+1):
 
     if epoch % evaluate_interval == 0:
         model.eval()
-        pred, ctr, ctcvr = model(x_test_tensor)
-        pred = pred.flatten().cpu().detach().numpy()
+        x_test_tensor = torch.LongTensor(x_test-1).to(device)
+        pred_, _, __ = model(x_test_tensor)
+        pred = pred_.flatten().cpu().detach().numpy()
 
         ndcg_res = ndcg_func(pred, x_test, y_test, top_k_list)
         ndcg_dict: dict = {}
@@ -179,5 +187,3 @@ print(f"AP: {ap_dict}")
 print(f"AUC: {auc}")
 
 wandb.finish()
-
-# %%

@@ -49,6 +49,7 @@ parser.add_argument("--top-k-list", type=list, default=[1,3,5,7,10])
 parser.add_argument("--data-dir", type=str, default="./data")
 
 parser.add_argument("--G", type=int, default=1)
+parser.add_argument("--alpha", type=float, default=1.)
 
 try:
     args = parser.parse_args()
@@ -66,6 +67,7 @@ top_k_list = args.top_k_list
 data_dir = args.data_dir
 dataset_name = args.dataset_name
 G = args.G
+alpha = args.alpha
 
 expt_num = f'{datetime.now().strftime("%y%m%d_%H%M%S_%f")}'
 set_seed(random_seed)
@@ -76,7 +78,7 @@ device = set_device()
 configs = vars(args)
 configs["device"] = device
 wandb_var = wandb.init(project="no_ips", config=configs)
-wandb.run.name = f"main_esmm_{expt_num}"
+wandb.run.name = f"esmm_interaction_{expt_num}"
 
 
 # DATA LOADER
@@ -124,7 +126,7 @@ for epoch in range(1, num_epochs+1):
         sub_entire_y = torch.Tensor(y_entire[x_all_idx]).unsqueeze(-1).to(device)
 
         pred_cvr, pred_ctr, pred_ctcvr = model(x_sampled)
-        ctr_loss = loss_fcn(nn.Sigmoid()(pred_ctr), sub_obs)
+        ctr_loss = loss_fcn(nn.Sigmoid()(pred_ctr), sub_obs) * alpha
         ctcvr_loss = loss_fcn(pred_ctcvr, sub_entire_y)
         total_loss = ctr_loss + ctcvr_loss
 

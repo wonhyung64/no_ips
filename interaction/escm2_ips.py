@@ -78,7 +78,7 @@ device = set_device()
 configs = vars(args)
 configs["device"] = device
 wandb_var = wandb.init(project="no_ips", config=configs)
-wandb.run.name = f"main_escm2_ips_{expt_num}"
+wandb.run.name = f"escm2_ips_interaction_{expt_num}"
 
 
 # DATA LOADER
@@ -126,10 +126,10 @@ for epoch in range(1, num_epochs+1):
         sub_entire_y = torch.Tensor(y_entire[x_all_idx]).unsqueeze(-1).to(device)
 
         pred_cvr, pred_ctr, pred_ctcvr = model(x_sampled)
-        ctr_loss = loss_fcn(nn.Sigmoid()(pred_ctr), sub_obs)
-        ctcvr_loss = loss_fcn(pred_ctcvr, sub_entire_y) * alpha
+        ctr_loss = loss_fcn(nn.Sigmoid()(pred_ctr), sub_obs) * alpha
+        ctcvr_loss = loss_fcn(pred_ctcvr, sub_entire_y) * beta
         cvr_loss = F.binary_cross_entropy(nn.Sigmoid()(pred_cvr), sub_entire_y, 1/(nn.Sigmoid()(pred_ctr).detach()), reduction="none")
-        cvr_loss = (cvr_loss * sub_obs).mean() * beta
+        cvr_loss = (cvr_loss * sub_obs).mean()
 
         total_loss = ctr_loss + ctcvr_loss + cvr_loss
 
