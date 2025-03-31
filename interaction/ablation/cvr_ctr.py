@@ -98,6 +98,7 @@ for seed in range(10):
     data_dir = args.data_dir
     dataset_name = args.dataset_name
     loss_type = args.loss_type
+    alpha = args.alpha
 
     expt_num = f'{datetime.now().strftime("%y%m%d_%H%M%S_%f")}'
     set_seed(random_seed)
@@ -168,7 +169,7 @@ for seed in range(10):
             epoch_rec_loss += rec_loss
             epoch_ctr_loss += ctr_loss
 
-            total_loss = rec_loss + ctr_loss
+            total_loss = rec_loss + ctr_loss * alpha
             epoch_total_loss += total_loss
 
             optimizer.zero_grad()

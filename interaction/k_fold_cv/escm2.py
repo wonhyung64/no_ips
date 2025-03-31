@@ -34,6 +34,7 @@ parser.add_argument("--lr", type=float, default=1e-4)
 parser.add_argument("--weight-decay", type=float, default=1e-4)
 parser.add_argument("--batch-size", type=int, default=4096)
 parser.add_argument("--dataset-name", type=str, default="coat")
+parser.add_argument("--loss-type", type=str, default="naive")
 
 parser.add_argument("--num-epochs", type=int, default=1000)
 parser.add_argument("--random-seed", type=int, default=0)
@@ -63,6 +64,7 @@ dataset_name = args.dataset_name
 alpha = args.alpha
 beta = args.beta
 G = args.G
+loss_type = args.loss_type
 
 expt_num = f'{datetime.now().strftime("%y%m%d_%H%M%S_%f")}'
 set_seed(random_seed)
@@ -85,7 +87,7 @@ for cv_num, (train_idx, test_idx) in enumerate(kf.split(x_train)):
     configs["device"] = device
     configs["cv_num"] = cv_num
     wandb_var = wandb.init(project="no_ips", config=configs)
-    wandb.run.name = f"cv_main_escm2_ips_{expt_num}"
+    wandb.run.name = f"cv_escm2_{loss_type}_{expt_num}"
 
     x_train = x_train_cv[train_idx]
     y_train = y_train_cv[train_idx]
@@ -104,10 +106,11 @@ for cv_num, (train_idx, test_idx) in enumerate(kf.split(x_train)):
     model = model.to(device)
     optimizer = torch.optim.Adam(model.parameters(), lr=lr, weight_decay=weight_decay)
     loss_fcn = torch.nn.BCELoss()
+    x_test_tensor = torch.LongTensor(x_test-1).to(device)
+    inv_prop = torch.tensor([1.]).to(device)
 
     for epoch in range(1, num_epochs+1):
-
-        ul_idxs = np.arange(x_all.shape[0]) # all
+        ul_idxs = np.arange(x_all.shape[0])
         np.random.shuffle(ul_idxs)
         model.train()
 
@@ -118,17 +121,21 @@ for cv_num, (train_idx, test_idx) in enumerate(kf.split(x_train)):
 
         for idx in range(total_batch):
 
-            x_all_idx = ul_idxs[G*idx* batch_size : G*(idx+1)*batch_size]
-            x_sampled = x_all[x_all_idx]
-            x_sampled = torch.LongTensor(x_sampled).to(device)
-            sub_obs = torch.Tensor(obs[x_all_idx]).unsqueeze(-1).to(device)
-            sub_entire_y = torch.Tensor(y_entire[x_all_idx]).unsqueeze(-1).to(device)
+            selected_idx = ul_idxs[batch_size*idx:(idx+1)*batch_size]
+            sub_x = x_all[selected_idx]
+            sub_x = torch.LongTensor(sub_x).to(device)
+            sub_y = y_entire[selected_idx]
+            sub_y = torch.Tensor(sub_y).unsqueeze(-1).to(device)
+            sub_t = obs[selected_idx]
+            sub_t = torch.Tensor(sub_t).unsqueeze(-1).to(device)
 
-            pred_cvr, pred_ctr, pred_ctcvr = model(x_sampled)
-            ctr_loss = loss_fcn(nn.Sigmoid()(pred_ctr), sub_obs)
-            ctcvr_loss = loss_fcn(pred_ctcvr, sub_entire_y) * alpha
-            cvr_loss = F.binary_cross_entropy(nn.Sigmoid()(pred_cvr), sub_entire_y, 1/(nn.Sigmoid()(pred_ctr).detach()), reduction="none")
-            cvr_loss = (cvr_loss * sub_obs).mean() * beta
+            pred_cvr, pred_ctr, pred_ctcvr = model(sub_x)
+            if loss_type == "ips":
+                inv_prop = 1/torch.nn.Sigmoid()(pred_ctr).detach()
+            ctr_loss = loss_fcn(nn.Sigmoid()(pred_ctr), sub_t) * alpha
+            ctcvr_loss = loss_fcn(pred_ctcvr, sub_y) * beta
+            cvr_loss = F.binary_cross_entropy(nn.Sigmoid()(pred_cvr), sub_y, inv_prop, reduction="none")
+            cvr_loss = (cvr_loss * sub_t).mean()
             total_loss = ctr_loss + ctcvr_loss + cvr_loss
 
             epoch_ctr_loss += ctr_loss
