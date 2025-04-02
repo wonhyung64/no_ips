@@ -34,6 +34,7 @@ parser.add_argument("--lr", type=float, default=1e-4)
 parser.add_argument("--weight-decay", type=float, default=1e-4)
 parser.add_argument("--batch-size", type=int, default=4096)
 parser.add_argument("--dataset-name", type=str, default="coat")
+parser.add_argument("--alpha", type=float, default=0.1)
 
 """yahoo"""
 # parser.add_argument("--embedding-k", type=int, default=)
@@ -41,6 +42,7 @@ parser.add_argument("--dataset-name", type=str, default="coat")
 # parser.add_argument("--weight-decay", type=float, default=1e-6)
 # parser.add_argument("--batch-size", type=int, default=8192)
 # parser.add_argument("--dataset-name", type=str, default="yahoo_r3")
+# parser.add_argument("--alpha", type=float, default=2.)
 
 parser.add_argument("--num-epochs", type=int, default=1000)
 parser.add_argument("--random-seed", type=int, default=0)
@@ -49,7 +51,6 @@ parser.add_argument("--top-k-list", type=list, default=[1,3,5,7,10])
 parser.add_argument("--data-dir", type=str, default="./data")
 
 parser.add_argument("--G", type=int, default=1)
-parser.add_argument("--alpha", type=float, default=1.)
 
 try:
     args = parser.parse_args()
