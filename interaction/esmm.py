@@ -37,7 +37,7 @@ parser.add_argument("--dataset-name", type=str, default="coat")
 parser.add_argument("--alpha", type=float, default=0.1)
 
 """yahoo"""
-# parser.add_argument("--embedding-k", type=int, default=)
+# parser.add_argument("--embedding-k", type=int, default=64)
 # parser.add_argument("--lr", type=float, default=1e-2)
 # parser.add_argument("--weight-decay", type=float, default=1e-6)
 # parser.add_argument("--batch-size", type=int, default=8192)
