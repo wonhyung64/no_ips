@@ -50,7 +50,7 @@ parser.add_argument("--beta0", type=float, default=1.)
 
 parser.add_argument("--batch-size", type=int, default=4096)
 parser.add_argument("--embedding-k", type=int, default=64)
-parser.add_argument("--num-epochs", type=int, default=1000)
+parser.add_argument("--num-epochs", type=int, default=1)
 parser.add_argument("--random-seed", type=int, default=0)
 parser.add_argument("--evaluate-interval", type=int, default=50)
 parser.add_argument("--top-k-list", type=list, default=[10, 30, 100, 1372])
@@ -292,5 +292,8 @@ wandb_var.log(cp_dict)
 wandb_var.log(car_dict)
 
 wandb.finish()
+
+torch.save(model_y1.state_dict(), f"./escm2_ips_y1_seed{random_seed}.pth")
+torch.save(model_y0.state_dict(), f"./escm2_ips_y0_seed{random_seed}.pth")
 
 # %%

@@ -261,4 +261,6 @@ wandb_var.log(car_dict)
 
 wandb.finish()
 
+torch.save(model.state_dict(), f"./escm2_plus_ips_seed{random_seed}.pth")
+
 # %%
