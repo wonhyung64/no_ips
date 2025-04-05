@@ -35,8 +35,6 @@ parser.add_argument("--alpha0", type=float, default=0.1)
 parser.add_argument("--beta1", type=float, default=0.1)
 parser.add_argument("--beta0", type=float, default=1.)
 
-
-
 """personalized"""
 # parser.add_argument("--dataset-name", type=str, default="personalized")#[original, personalized]
 # parser.add_argument("--lr1", type=float, default=1e-4)
@@ -293,7 +291,7 @@ wandb_var.log(car_dict)
 
 wandb.finish()
 
-torch.save(model_y1.state_dict(), f"./escm2_ips_y1_seed{random_seed}.pth")
-torch.save(model_y0.state_dict(), f"./escm2_ips_y0_seed{random_seed}.pth")
+torch.save(model_y1.state_dict(), f"./escm2_ips_y1_{dataset_name[:3]}_seed{random_seed}.pth")
+torch.save(model_y0.state_dict(), f"./escm2_ips_y0_{dataset_name[:3]}_seed{random_seed}.pth")
 
 # %%
