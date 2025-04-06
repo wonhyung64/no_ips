@@ -113,12 +113,12 @@ total_batch = num_samples // batch_size
 
 ps_model_y1 = SharedNCF(num_users, num_items, embedding_k)
 ps_model_y1 = ps_model_y1.to(device)
-weight_dir = f"./weights/{ps_model_name}_ips_y1{'_ori' if dataset_name=='original' else ''}_seed{random_seed}.pth"
+weight_dir = f"./weights/{ps_model_name}_ips_y1{'_ori' if dataset_name=='original' else '_per'}_seed{random_seed}.pth"
 ps_model_y1.load_state_dict(torch.load(weight_dir, map_location=device))
 
 ps_model_y0 = SharedNCF(num_users, num_items, embedding_k)
 ps_model_y0 = ps_model_y0.to(device)
-weight_dir = f"./weights/{ps_model_name}_ips_y0{'_ori' if dataset_name=='original' else ''}_seed{random_seed}.pth"
+weight_dir = f"./weights/{ps_model_name}_ips_y0{'_ori' if dataset_name=='original' else '_per'}_seed{random_seed}.pth"
 ps_model_y0.load_state_dict(torch.load(weight_dir, map_location=device))
 
 

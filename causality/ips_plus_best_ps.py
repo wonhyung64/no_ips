@@ -105,7 +105,7 @@ total_batch = num_samples // batch_size
 
 ps_model = SharedNCFPlus(num_users, num_items, embedding_k)
 ps_model = ps_model.to(device)
-weight_dir = f"./weights/{ps_model_name}_plus_ips{'_ori' if dataset_name=='original' else ''}_seed{random_seed}.pth"
+weight_dir = f"./weights/{ps_model_name}_plus_ips{'_ori' if dataset_name=='original' else '_per'}_seed{random_seed}.pth"
 ps_model.load_state_dict(torch.load(weight_dir, map_location=device))
 
 x_test_tensor = torch.LongTensor(x_test).to(device)
