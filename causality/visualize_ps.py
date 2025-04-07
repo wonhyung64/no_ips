@@ -5,7 +5,9 @@ import numpy as np
 import matplotlib.pyplot as plt
 from datetime import datetime
 from scipy.stats import gaussian_kde
-from matplotlib.ticker import MultipleLocator
+import matplotlib.pyplot as plt
+from matplotlib.ticker import MaxNLocator
+import matplotlib.font_manager as fm
 
 from module.model import SharedNCF, SharedNCFPlus
 from module.dataset import load_data
@@ -62,7 +64,7 @@ x_test_tensor = torch.LongTensor(x_test).to(device)
 
 #%%
 ps_model_name_list = ["Multi-IPS", "ESCM2-IPS"]
-labels_list = [["Y(1)", "Y(0)", "Plus", "True"], ["Y(1)", "Y(0)", "Y(1)+Y(0)", "True"]]
+labels_list = [["Y(1)", "Y(0)", "Plus", "True"], ["Y(1)", "Y(0)", "Y(1) + Y(0)", "True"]]
 density_list = []
 for ps_model_name, labels in zip(ps_model_name_list, labels_list):
 
@@ -106,13 +108,15 @@ for ps_model_name, labels in zip(ps_model_name_list, labels_list):
 
     density_list.append(densities)
 
-# np.save("./personalized_ps_density.npy", np.array(density_list), allow_pickle=True)
-density_list = np.load("./original_ps_density.npy")
 
 # %%
-import matplotlib.pyplot as plt
-from matplotlib.ticker import MaxNLocator
-font_size=14
+density_list = np.load("./original_ps_density.npy")
+# density_list = np.load("./personalized_ps_density.npy")
+font_size=16
+font_path = "/System/Library/Fonts/Supplemental/Times New Roman.ttf"
+fontprop = fm.FontProperties(fname=font_path)
+plt.rcParams['font.family'] = fontprop.get_name()
+plt.rcParams['font.weight'] = 'bold'
 
 handles, labels = [], []
 colors = ["#1f77b4", "#2ca02c", "#ff7f0e", "#d62728"]
@@ -132,14 +136,17 @@ for i, (densities, labels, ax) in enumerate(zip(density_list, labels_list, axes)
         ax.grid(True, linestyle='--', alpha=0.5)
         ax.set_xlabel('')
         if i == 0:
-            ax.set_ylabel('Density', fontsize=font_size)
+            ax.set_ylabel('Density', fontsize=font_size, fontweight="bold")
 
-        ax.set_title(f'{ps_model_name_list[i]}', fontsize=font_size)
+        ax.set_title(f'{ps_model_name_list[i]}', fontsize=font_size, fontweight="bold")
         ax.yaxis.set_major_locator(MaxNLocator(nbins=3))
         ax.xaxis.set_major_locator(MaxNLocator(nbins=5))
-
-legend = fig.legend(handles, labels, loc='upper center', ncol=4, fontsize=font_size, frameon=True, bbox_to_anchor=(0.5, 1.2))
+legend = fig.legend(handles, labels, loc='upper center', ncol=4, fontsize=font_size, frameon=True, bbox_to_anchor=(0.54, 1.25))
 legend.get_frame().set_edgecolor('black')
+
 plt.tight_layout()
 plt.show()
+fig.savefig("./kde_original.pdf", bbox_inches='tight')
+# fig.savefig("./kde_personalized.pdf", bbox_inches="tight")
 #
+# %%
