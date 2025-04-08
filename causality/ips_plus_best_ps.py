@@ -40,7 +40,7 @@ parser.add_argument("--random-seed", type=int, default=0)
 parser.add_argument("--evaluate-interval", type=int, default=50)
 parser.add_argument("--top-k-list", type=list, default=[10, 30, 100, 1372])
 parser.add_argument("--data-dir", type=str, default="./data")
-parser.add_argument("--propensity", type=str, default="true")#[pred,true]
+parser.add_argument("--propensity", type=str, default="pred")#[pred,true]
 parser.add_argument("--ps-model-name", type=str, default="multi") #[escm2, multi]
 
 try:
