@@ -262,4 +262,7 @@ wandb_var.log(car_dict)
 
 wandb.finish()
 
+torch.save(model_y1.state_dict(), f"./multi_naive_y1_{dataset_name[:3]}_seed{random_seed}.pth")
+torch.save(model_y0.state_dict(), f"./multi_naive_y0_{dataset_name[:3]}_seed{random_seed}.pth")
+
 # %%
