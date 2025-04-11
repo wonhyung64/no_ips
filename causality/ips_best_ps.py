@@ -164,6 +164,8 @@ for epoch in range(1, num_epochs+1):
 
         if propensity == "true":
             inv_prop = 1/(sub_ps+1e-9)
+        elif propensity == "clip":
+            inv_prop = 1/(sub_ps.clip(0.0025, 0.9975))
         elif propensity == "pred":
             inv_prop = 1 / nn.Sigmoid()(ps_pred).detach()
 
@@ -191,6 +193,8 @@ for epoch in range(1, num_epochs+1):
 
         if propensity == "true":
             inv_prop = 1/(sub_ps+1e-9)
+        elif propensity == "clip":
+            inv_prop = 1/(sub_ps.clip(0.0025, 0.9975))
         elif propensity == "pred":
             inv_prop = 1 / (1-nn.Sigmoid()(ps_pred).detach())
 

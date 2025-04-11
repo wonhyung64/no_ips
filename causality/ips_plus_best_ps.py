@@ -40,7 +40,7 @@ parser.add_argument("--random-seed", type=int, default=0)
 parser.add_argument("--evaluate-interval", type=int, default=50)
 parser.add_argument("--top-k-list", type=list, default=[10, 30, 100, 1372])
 parser.add_argument("--data-dir", type=str, default="./data")
-parser.add_argument("--propensity", type=str, default="pred")#[pred,true]
+parser.add_argument("--propensity", type=str, default="clip")#[pred,true,clip]
 parser.add_argument("--ps-model-name", type=str, default="multi") #[escm2, multi]
 
 try:
@@ -137,11 +137,13 @@ for epoch in range(1, num_epochs+1):
         sub_ps = ps1_entire[selected_idx]
         sub_ps = torch.Tensor(sub_ps).unsqueeze(-1).to(device)
 
-        _, ps_pred, __ = ps_model(sub_x)
+        _, __, ps_pred = ps_model(sub_x)
         pred_y1, pred_y0 = model(sub_x)
 
         if propensity == "true":
             inv_prop = 1/(sub_ps+1e-9)
+        elif propensity == "clip":
+            inv_prop = 1/(sub_ps.clip(0.0025, 0.9975))
         elif propensity == "pred":
             inv_prop = 1 / nn.Sigmoid()(ps_pred).detach()
 
@@ -159,6 +161,8 @@ for epoch in range(1, num_epochs+1):
 
         if propensity == "true":
             inv_prop = 1/(sub_ps+1e-9)
+        elif propensity == "clip":
+            inv_prop = 1/(sub_ps.clip(0.0025, 0.9975))
         elif propensity == "pred":
             inv_prop = 1 / (1-nn.Sigmoid()(ps_pred).detach())
 

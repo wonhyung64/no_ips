@@ -1,4 +1,5 @@
 #%%
+import os
 import torch
 import argparse
 import numpy as np
@@ -51,6 +52,7 @@ expt_num = f'{datetime.now().strftime("%y%m%d_%H%M%S_%f")}'
 set_seed(random_seed)
 device = set_device()
 
+#%%
 x_train, x_test = load_data(data_dir, dataset_name)
 x_train, y_train, t_train, ps_train = x_train[:,:2].astype(int), x_train[:,2:3], x_train[:,3:4], x_train[:,4:]
 x_test, cate_test = x_test[:,:2].astype(int), x_test[:,2]
@@ -61,76 +63,72 @@ print(f"# user: {num_users}, # item: {num_items}")
 
 x_test_tensor = torch.LongTensor(x_test).to(device)
 
+data_dir = f"./visualize_data"
+
 
 #%%
 ps_model_name_list = ["Multi-IPS", "ESCM2-IPS"]
+ps_model_name_list = ["multi", "escm2"]
 labels_list = [["Y(1)", "Y(0)", "Plus", "True"], ["Y(1)", "Y(0)", "Y(1) + Y(0)", "True"]]
 density_list = []
-for ps_model_name, labels in zip(ps_model_name_list, labels_list):
 
-    ps_model_y1 = SharedNCF(num_users, num_items, embedding_k)
-    ps_model_y1 = ps_model_y1.to(device)
-    weight_dir = f"./weights/{ps_model_name}_ips_y1{'_ori' if dataset_name=='original' else '_per'}_seed{random_seed}.pth"
-    ps_model_y1.load_state_dict(torch.load(weight_dir, map_location=device))
+for ps_model_name in ps_model_name_list:
+    ps_pred_y1 = np.load(f"{data_dir}/pred_t_{ps_model_name}_ips_y1_{dataset_name[:3]}_seed{random_seed}.npy")
+    ps_pred_y0 = np.load(f"{data_dir}/pred_t_{ps_model_name}_ips_y0_{dataset_name[:3]}_seed{random_seed}.npy")
+    ps_pred_plus = np.load(f"{data_dir}/pred_t_{ps_model_name}_ips_plus_{dataset_name[:3]}_seed{random_seed}.npy")
+    ps_true = np.load(f"{data_dir}/true_propensity_{dataset_name[:3]}.npy")
+    
+    data_arr = np.array([ps_pred_y1, ps_pred_y0, ps_pred_plus, ps_true])
+    x_min_max = (data_arr.min(), data_arr.max())
 
-    ps_model_y0 = SharedNCF(num_users, num_items, embedding_k)
-    ps_model_y0 = ps_model_y0.to(device)
-    weight_dir = f"./weights/{ps_model_name}_ips_y0{'_ori' if dataset_name=='original' else '_per'}_seed{random_seed}.pth"
-    ps_model_y0.load_state_dict(torch.load(weight_dir, map_location=device))
+    if dataset_name == "original":
+        x_range = np.linspace(x_min_max[0], x_min_max[1], 1000)
+    elif dataset_name == "personalized":
+        x_range = np.linspace(-8, 14, 1000)
 
-    ps_model_plus = SharedNCFPlus(num_users, num_items, embedding_k)
-    ps_model_plus = ps_model_plus.to(device)
-    weight_dir = f"./weights/{ps_model_name}_plus_ips{'_ori' if dataset_name=='original' else '_per'}_seed{random_seed}.pth"
-    ps_model_plus.load_state_dict(torch.load(weight_dir, map_location=device))
+    file_name = f"{data_dir}/density_t_{ps_model_name}_ips_{dataset_name[:3]}_seed{random_seed}.npy"
+    if os.path.exists(file_name):
+        density = np.load(file_name)
+        
+    else:
+        density = []
+        for data in data_arr:
+            kde = gaussian_kde(data)
+            density.append(kde(x_range))
+        np.save(f"{data_dir}/density_t_{ps_model_name}_ips_{dataset_name[:3]}_seed{random_seed}.npy", np.array(density), allow_pickle=True)
 
-
-    ps_model_y1.eval()
-    ps_model_y0.eval()
-    ps_model_plus.eval()
-
-    _, ps_pred_y1, __ = ps_model_y1(x_test_tensor)
-    _, ps_pred_y0, __ = ps_model_y0(x_test_tensor)
-    _, ps_pred_plus, __ = ps_model_plus(x_test_tensor)
-
-    ps_pred_y1 = ps_pred_y1.cpu().detach().numpy().squeeze()
-    ps_pred_y0 = ps_pred_y0.cpu().detach().numpy().squeeze()
-    ps_pred_plus = ps_pred_plus.cpu().detach().numpy().squeeze()
-    ps_true = logit(ps_train).squeeze()
-
-
-    data_list = [ps_pred_y1, ps_pred_y0, ps_pred_plus, ps_true]
-
-    x_range = np.linspace(-10, 10, 1000)
-    densities = []
-    for data in data_list:
-        kde = gaussian_kde(data)
-        densities.append(kde(x_range))
-
-    density_list.append(densities)
+    density_list.append(density)
 
 
 # %%
-density_list = np.load("./original_ps_density.npy")
-# density_list = np.load("./personalized_ps_density.npy")
+# VISUALIZATION OPTIONS
 font_size=16
 font_path = "/System/Library/Fonts/Supplemental/Times New Roman.ttf"
+colors = ["#1f77b4", "#2ca02c", "#ff7f0e", "#d62728"]
+
 fontprop = fm.FontProperties(fname=font_path)
 plt.rcParams['font.family'] = fontprop.get_name()
 plt.rcParams['font.weight'] = 'bold'
 
+#%%
 handles, labels = [], []
-colors = ["#1f77b4", "#2ca02c", "#ff7f0e", "#d62728"]
 fig, axes = plt.subplots(1, 2, sharex=True, figsize=(8, 2))
 for i, (densities, labels, ax) in enumerate(zip(density_list, labels_list, axes)):
 
-    for density, label, color in zip(densities, labels, colors):
+    for j, (density, label, color) in enumerate(zip(densities, labels, colors)):
+        # if j != 3:
+        #     continue
         line = ax.plot(x_range, density, label=label, color=color)
         if i == 0:
             handles.append(line[0])
             labels.append(label)
 
         ax.set_ylim(0, 0.5)
-        ax.set_xlim(-10, 5)
+        if dataset_name == "original": 
+            ax.set_xlim(np.floor(x_min_max[0]), np.ceil(x_min_max[1]))
+        else:
+            ax.set_xlim(-8, 14)
+
         ax.tick_params(axis='x', which='both', top=False, labelsize=font_size)
         ax.tick_params(axis='y', which='both', labelsize=font_size)
         ax.grid(True, linestyle='--', alpha=0.5)
@@ -141,12 +139,19 @@ for i, (densities, labels, ax) in enumerate(zip(density_list, labels_list, axes)
         ax.set_title(f'{ps_model_name_list[i]}', fontsize=font_size, fontweight="bold")
         ax.yaxis.set_major_locator(MaxNLocator(nbins=3))
         ax.xaxis.set_major_locator(MaxNLocator(nbins=5))
-legend = fig.legend(handles, labels, loc='upper center', ncol=4, fontsize=font_size, frameon=True, bbox_to_anchor=(0.54, 1.25))
-legend.get_frame().set_edgecolor('black')
+
+if dataset_name == "original":
+    legend = fig.legend(handles, labels, loc='upper center', ncol=4, fontsize=font_size, frameon=True, bbox_to_anchor=(0.54, 1.25))
+    legend.get_frame().set_edgecolor('black')
 
 plt.tight_layout()
 plt.show()
-fig.savefig("./kde_original.pdf", bbox_inches='tight')
-# fig.savefig("./kde_personalized.pdf", bbox_inches="tight")
-#
+
+
+# %%
+if dataset_name == "original":
+    fig.savefig("./kde_original.pdf", bbox_inches='tight')
+elif dataset_name == "personalized":
+    fig.savefig("./kde_personalized.pdf", bbox_inches="tight")
+
 # %%
