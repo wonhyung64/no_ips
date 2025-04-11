@@ -67,7 +67,7 @@ data_dir = f"./visualize_data"
 
 
 #%%
-ps_model_name_list = ["Multi-IPS", "ESCM2-IPS"]
+ps_label_name_list = ["Multi-IPS", "ESCM2-IPS"]
 ps_model_name_list = ["multi", "escm2"]
 labels_list = [["Y(1)", "Y(0)", "Plus", "True"], ["Y(1)", "Y(0)", "Y(1) + Y(0)", "True"]]
 density_list = []
@@ -125,7 +125,7 @@ for i, (densities, labels, ax) in enumerate(zip(density_list, labels_list, axes)
 
         ax.set_ylim(0, 0.5)
         if dataset_name == "original": 
-            ax.set_xlim(np.floor(x_min_max[0]), np.ceil(x_min_max[1]))
+            ax.set_xlim(np.floor(x_min_max[0]), 4)
         else:
             ax.set_xlim(-8, 14)
 
@@ -136,12 +136,12 @@ for i, (densities, labels, ax) in enumerate(zip(density_list, labels_list, axes)
         if i == 0:
             ax.set_ylabel('Density', fontsize=font_size, fontweight="bold")
 
-        ax.set_title(f'{ps_model_name_list[i]}', fontsize=font_size, fontweight="bold")
+        ax.set_title(f'{ps_label_name_list[i]}', fontsize=font_size, fontweight="bold")
         ax.yaxis.set_major_locator(MaxNLocator(nbins=3))
         ax.xaxis.set_major_locator(MaxNLocator(nbins=5))
 
-if dataset_name == "original":
-    legend = fig.legend(handles, labels, loc='upper center', ncol=4, fontsize=font_size, frameon=True, bbox_to_anchor=(0.54, 1.25))
+if dataset_name == "personalized":
+    legend = fig.legend(handles, labels, loc='center', ncol=4, fontsize=font_size, frameon=True, bbox_to_anchor=(0.54, -0.1))
     legend.get_frame().set_edgecolor('black')
 
 plt.tight_layout()
@@ -155,3 +155,4 @@ elif dataset_name == "personalized":
     fig.savefig("./kde_personalized.pdf", bbox_inches="tight")
 
 # %%
+

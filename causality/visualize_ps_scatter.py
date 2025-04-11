@@ -5,10 +5,9 @@ import argparse
 import numpy as np
 import matplotlib.pyplot as plt
 from datetime import datetime
-from scipy.stats import gaussian_kde
 import matplotlib.pyplot as plt
-from matplotlib.ticker import MaxNLocator
 import matplotlib.font_manager as fm
+from matplotlib.ticker import MaxNLocator
 
 from module.dataset import load_data
 from module.utils import set_device, set_seed
@@ -66,9 +65,8 @@ x_test_tensor = torch.LongTensor(x_test).to(device)
 #%%
 # VISUALIZATION OPTIONS
 data_dir = f"./visualize_data"
-font_size=13
+font_size=16
 font_path = "/System/Library/Fonts/Supplemental/Times New Roman.ttf"
-colors = ["#1f77b4", "#2ca02c", "#ff7f0e", "#d62728"]
 
 fontprop = fm.FontProperties(fname=font_path)
 plt.rcParams['font.family'] = fontprop.get_name()
@@ -77,17 +75,17 @@ np.random.seed(random_seed)
 
 #%%
 ps_model_name_list = ["multi", "escm2"]
-subtitle_list = ["Multi-IPS", "ESCM2"]
+subtitle_list = ["Multi-IPS+", "ESCM2-IPS+"]
 fig, axes = plt.subplots(1, 2, sharex=True, figsize=(8, 4))
 for i, (ax, ps_model_name) in enumerate(zip(axes, ps_model_name_list)):
     ps_pred_plus = np.load(f"{data_dir}/pred_t_{ps_model_name}_ips_plus_{dataset_name[:3]}_seed{random_seed}.npy")
     ps_true = np.load(f"{data_dir}/true_propensity_{dataset_name[:3]}.npy")
-    ps_true = ps_true[ps_true < 40]
+    ps_true = ps_true[ps_true < 0]
     sample_idx = np.random.choice(np.arange(0, len(ps_true)), 200)
 
     sample_ps_true = ps_true[sample_idx]
     sample_ps_pred_plus = ps_pred_plus[sample_idx]
-    scatter = ax.scatter(sample_ps_true, sample_ps_pred_plus, alpha=0.6, edgecolors="black", c="#1f77b4")
+    scatter = ax.scatter(sample_ps_true, sample_ps_pred_plus, alpha=0.8, edgecolors="black", c="#ff7f0e")
 
     ax.tick_params(axis='x', labelsize=font_size)
     ax.tick_params(axis='y', which='both', labelsize=font_size)
@@ -95,6 +93,9 @@ for i, (ax, ps_model_name) in enumerate(zip(axes, ps_model_name_list)):
     if i == 0:
         ax.set_ylabel('Pred', fontsize=font_size, fontweight="bold")
     ax.set_xlabel('')
+
+    ax.yaxis.set_major_locator(MaxNLocator(nbins=3))
+    ax.xaxis.set_major_locator(MaxNLocator(nbins=3))
 
     ax.grid(True, linestyle='--', alpha=0.5)
     fig.text(0.5, 0, 'True', ha='center', fontsize=font_size)
@@ -106,6 +107,6 @@ plt.show()
 
 
 # %%
-fig.savefig("./scatter_personalized1.pdf", bbox_inches="tight")
+fig.savefig("./scatter_personalized.pdf", bbox_inches="tight")
 
 # %%
