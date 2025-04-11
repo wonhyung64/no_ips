@@ -137,7 +137,7 @@ for epoch in range(1, num_epochs+1):
         sub_ps = ps1_entire[selected_idx]
         sub_ps = torch.Tensor(sub_ps).unsqueeze(-1).to(device)
 
-        _, ps_pred, __ = ps_model(sub_x)
+        _, __, ps_pred = ps_model(sub_x)
         pred_y1, pred_y0 = model(sub_x)
 
         if propensity == "true":
