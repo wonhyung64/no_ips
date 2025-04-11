@@ -137,3 +137,5 @@ for i, model_name_generator in enumerate(model_name_generator_list):
         np.save(f"{save_dir}/pred_t_{model_name_y1}.npy", pred_model_y1, allow_pickle=True)
         np.save(f"{save_dir}/pred_t_{model_name_y0}.npy", pred_model_y0, allow_pickle=True)
         np.save(f"{save_dir}/pred_t_{model_name_plus}.npy", pred_model_plus, allow_pickle=True)
+
+# %%
