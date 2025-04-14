@@ -65,17 +65,10 @@ print(f"# user: {num_users}, # item: {num_items}")
 x_test_tensor = torch.LongTensor(x_test).to(device)
 true_propensity = logit(ps_train).squeeze()
 
-# save_dir = "./visualize_data"
-# os.makedirs(save_dir, exist_ok=True)
-# np.save(f"{save_dir}/true_propensity_{dataset_name[:3]}", true_propensity, allow_pickle=True)
-
 
 #%%
-# model_name_generator_list = [
-#     lambda method, arch: f"multi_{method}_{arch}_{dataset_name[:3]}_seed{random_seed}",
-#     lambda method, arch: f"escm2_{method}_{arch}_{dataset_name[:3]}_seed{random_seed}",
-# ]
 model_name_generator = lambda method, arch: f"multi_{method}_{arch}_{dataset_name[:3]}_seed{random_seed}"
+# model_name_generator = lambda method, arch: f"escm2_{method}_{arch}_{dataset_name[:3]}_seed{random_seed}"
 
 # for i, model_name_generator in enumerate(model_name_generator_list):
 naive_y1_name = model_name_generator("naive", "y1")
@@ -126,9 +119,10 @@ data_arr = np.array([pred_naive_y1, pred_naive_y0, pred_ips_y1, pred_ips_y0])
 x_min_max = (data_arr.min(), data_arr.max())
 x_range = np.linspace(x_min_max[0], x_min_max[1], 1000)
 
-file_name = f"{data_dir}/density_yt_naive_ips_{dataset_name[:3]}_seed{random_seed}.npy"
-if os.path.exists(file_name):
-    density_arr = np.load(file_name)
+density_file_name = f"{data_dir}/density_yt_multi_naive_ips_{dataset_name[:3]}_seed{random_seed}.npy"
+# density_file_name = f"{data_dir}/density_yt_escm2_naive_ips_{dataset_name[:3]}_seed{random_seed}.npy"
+if os.path.exists(density_file_name):
+    density_arr = np.load(density_file_name)
         
 else:
     density = []
@@ -136,8 +130,10 @@ else:
         kde = gaussian_kde(data)
         density.append(kde(x_range))
     density_arr = np.array(density)
-    np.save(file_name, density_arr, allow_pickle=True)
+    np.save(density_file_name, density_arr, allow_pickle=True)
 
+np.save(f"{data_dir}/pred_yt_multi_naive_ips_{dataset_name[:3]}_seed{random_seed}.npy", data_arr, allow_pickle=True)
+# np.save(f"{data_dir}/pred_yt_escm2_naive_ips_{dataset_name[:3]}_seed{random_seed}.npy", data_arr, allow_pickle=True)
 
 # %%
 # VISUALIZATION OPTIONS
