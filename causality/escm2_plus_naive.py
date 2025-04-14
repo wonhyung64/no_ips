@@ -26,7 +26,7 @@ parser = argparse.ArgumentParser()
 
 """original""" #end
 parser.add_argument("--dataset-name", type=str, default="original")#[original, personalized]
-parser.add_argument("--lr", type=float, default=1e-3)
+parser.add_argument("--lr", type=float, default=1e-4)
 parser.add_argument("--weight-decay", type=float, default=1e-4)
 parser.add_argument("--alpha", type=float, default=1.)
 parser.add_argument("--beta", type=float, default=2.)
@@ -34,7 +34,7 @@ parser.add_argument("--beta", type=float, default=2.)
 
 """personalized""" #end
 # parser.add_argument("--dataset-name", type=str, default="personalized")#[original, personalized]
-# parser.add_argument("--lr", type=float, default=1e-3)
+# parser.add_argument("--lr", type=float, default=1e-4)
 # parser.add_argument("--weight-decay", type=float, default=1e-4)
 # parser.add_argument("--alpha", type=float, default=1.)
 # parser.add_argument("--beta", type=float, default=2.)
@@ -247,4 +247,5 @@ wandb_var.log(car_dict)
 
 wandb.finish()
 
+torch.save(model.state_dict(), f"./escm2_naive_plus_{dataset_name[:3]}_seed{random_seed}.pth")
 # %%

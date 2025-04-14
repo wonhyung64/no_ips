@@ -257,3 +257,6 @@ wandb_var.log(cp_dict)
 wandb_var.log(car_dict)
 
 wandb.finish()
+
+torch.save(model_y1.state_dict(), f"./esmm_y1_{dataset_name[:3]}_seed{random_seed}.pth")
+torch.save(model_y0.state_dict(), f"./esmm_y0_{dataset_name[:3]}_seed{random_seed}.pth")

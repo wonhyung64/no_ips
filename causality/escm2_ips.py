@@ -37,8 +37,8 @@ parser = argparse.ArgumentParser()
 
 """personalized"""
 parser.add_argument("--dataset-name", type=str, default="personalized")#[original, personalized]
-parser.add_argument("--lr1", type=float, default=1e-4)
-parser.add_argument("--lr0", type=float, default=1e-3)
+parser.add_argument("--lr1", type=float, default=1e-3)
+parser.add_argument("--lr0", type=float, default=1e-4)
 parser.add_argument("--weight-decay1", type=float, default=1e-4)
 parser.add_argument("--weight-decay0", type=float, default=1e-4)
 parser.add_argument("--alpha1", type=float, default=0.001)
@@ -53,7 +53,7 @@ parser.add_argument("--random-seed", type=int, default=0)
 parser.add_argument("--evaluate-interval", type=int, default=50)
 parser.add_argument("--top-k-list", type=list, default=[10, 30, 100, 1372])
 parser.add_argument("--data-dir", type=str, default="./data")
-parser.add_argument("--propensity", type=str, default="true")#[pred,true]
+parser.add_argument("--propensity", type=str, default="pred")#[pred,true]
 
 try:
     args = parser.parse_args()
