@@ -12,7 +12,7 @@ from scipy.stats import gaussian_kde
 
 from module.model import NCF, NCFPlus, SharedNCF, SharedNCFPlus
 from module.dataset import load_data
-from module.utils import set_device, set_seed
+from module.utils import set_device, set_seed, sigmoid
 
 
 def logit(x):
@@ -138,12 +138,12 @@ np.save(f"{data_dir}/pred_yt_multi_naive_ips_{dataset_name[:3]}_seed{random_seed
 # %%
 # VISUALIZATION OPTIONS
 font_size=16
-# font_path = "/System/Library/Fonts/Supplemental/Times New Roman.ttf"
+font_path = "/System/Library/Fonts/Supplemental/Times New Roman.ttf"
 colors = ["#1f77b4", "#2ca02c", "#ff7f0e", "#d62728"]
 
-# fontprop = fm.FontProperties(fname=font_path)
-# plt.rcParams['font.family'] = fontprop.get_name()
-# plt.rcParams['font.weight'] = 'bold'
+fontprop = fm.FontProperties(fname=font_path)
+plt.rcParams['font.family'] = fontprop.get_name()
+plt.rcParams['font.weight'] = 'bold'
 
 #%%
 labels = ["naive_y1", "naive_y0", "ips_y1", "ips_y0"]
@@ -167,7 +167,7 @@ for j, (density, label, color) in enumerate(zip(density_arr, labels, colors)):
 # if dataset_name == "personalized":
 #     legend = fig.legend(handles, labels, loc='center', ncol=4, fontsize=font_size, frameon=True, bbox_to_anchor=(0.54, -0.1))
 #     legend.get_frame().set_edgecolor('black')
-
+plt.legend()
 plt.tight_layout()
 plt.show()
 
@@ -179,4 +179,23 @@ plt.show()
 #     fig.savefig("./kde_personalized.pdf", bbox_inches="tight")
 
 # %%
+true = cate_test.reshape(1, -1)
+probs = sigmoid(data_arr)
+naive_cate = probs[0] - probs[1]
+ips_cate = probs[2] - probs[3]
+
+np.mean(np.square(true - naive_cate), -1)
+np.mean(np.square(true - ips_cate), -1)
+
+top_k = 10
+# top_k = x_test.shape[0]
+naive_top_k_rel = cate_test[np.argsort(-naive_cate)][:top_k]
+ips_top_k_rel = cate_test[np.argsort(-ips_cate)][:top_k]
+
+naive_top_k_pred = naive_cate[np.argsort(-naive_cate)][:top_k]
+ips_top_k_pred = ips_cate[np.argsort(-ips_cate)][:top_k]
+
+naive_top_k_mse = np.mean(np.square(naive_top_k_rel - naive_top_k_pred))
+ips_top_k_mse = np.mean(np.square(ips_top_k_rel - ips_top_k_pred))
+
 
