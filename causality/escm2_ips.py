@@ -260,6 +260,9 @@ for epoch in range(1, num_epochs+1):
         for top_k in top_k_list:
             car_dict[f"car_{top_k}"] = np.mean(car_res[f"car_{top_k}"])
 
+        mse = np.square(cate_test - pred).mean()
+
+        wandb_var.log({"mse":mse})
         wandb_var.log(cdcg_dict)
         wandb_var.log(cp_dict)
         wandb_var.log(car_dict)
