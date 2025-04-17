@@ -9,6 +9,8 @@ import torch.nn as nn
 import scipy.sparse as sps
 from datetime import datetime
 
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 from module.model import NCFPlus
 from module.metric import cdcg_func, car_func, cp_func, ncdcg_func
 from module.dataset import load_data, generate_total_sample
