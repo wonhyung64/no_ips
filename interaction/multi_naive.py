@@ -179,4 +179,4 @@ print(f"AUC: {auc}")
 
 wandb.finish()
 
-# %%
+torch.save(model.state_dict(), f"./multi_naive_{dataset_name}_seed{random_seed}.pth")

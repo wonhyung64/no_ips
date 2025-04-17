@@ -183,3 +183,5 @@ print(f"AP: {ap_dict}")
 print(f"AUC: {auc}")
 
 wandb.finish()
+
+torch.save(model.state_dict(), f"./esmm_{dataset_name}_seed{random_seed}.pth")

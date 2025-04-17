@@ -180,4 +180,4 @@ print(f"AUC: {auc}")
 
 wandb.finish()
 
-# %%
+torch.save(model.state_dict(), f"./multi_ips_{dataset_name}_seed{random_seed}.pth")

@@ -211,3 +211,6 @@ print(f"AP: {ap_dict}")
 print(f"AUC: {auc}")
 
 wandb.finish()
+
+torch.save(model.state_dict(), f"./ips_{dataset_name}_seed{random_seed}.pth")
+torch.save(ps_model.state_dict(), f"./ips_ps_{dataset_name}_seed{random_seed}.pth")
