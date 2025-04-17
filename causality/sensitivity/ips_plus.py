@@ -283,3 +283,5 @@ wandb_var.log(cp_dict)
 wandb_var.log(car_dict)
 
 wandb.finish()
+
+torch.save(model.state_dict(), f"./sen_ips_plus_{dataset_name[:3]}_seed{random_seed}.pth")

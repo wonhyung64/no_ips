@@ -252,5 +252,5 @@ wandb_var.log(car_dict)
 
 wandb.finish()
 
-torch.save(model.state_dict(), f"./escm2_naive_plus_{dataset_name[:3]}_seed{random_seed}.pth")
+torch.save(model.state_dict(), f"./sen_escm2_naive_plus_{dataset_name[:3]}_seed{random_seed}.pth")
 # %%

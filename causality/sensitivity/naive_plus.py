@@ -232,5 +232,5 @@ wandb_var.log(car_dict)
 
 wandb.finish()
 
-torch.save(model.state_dict(), f"./weights/naive_plus_{dataset_name[:3]}_{random_seed}.pth")
+torch.save(model.state_dict(), f"./weights/sen_naive_plus_{dataset_name[:3]}_{random_seed}.pth")
 # %%
