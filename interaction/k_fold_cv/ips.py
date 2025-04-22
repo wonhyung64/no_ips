@@ -13,7 +13,7 @@ from sklearn.model_selection import KFold
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from module.model import NCF
+from module.model import NCF, MF
 from module.metric import ndcg_func, recall_func, ap_func
 from module.utils import set_seed, set_device
 from module.dataset import binarize, load_data, generate_total_sample
@@ -39,6 +39,9 @@ parser.add_argument("--evaluate-interval", type=int, default=50)
 parser.add_argument("--top-k-list", type=list, default=[1,3,5,7,10])
 parser.add_argument("--data-dir", type=str, default="../data")
 parser.add_argument("--dataset-name", type=str, default="yahoo_r3")
+
+parser.add_argument("--base-model", type=str, default="ncf") # ["ncf", "mf"]
+
 try:
     args = parser.parse_args()
 except:
@@ -54,6 +57,7 @@ evaluate_interval = args.evaluate_interval
 top_k_list = args.top_k_list
 data_dir = args.data_dir
 dataset_name = args.dataset_name
+base_model = args.base_model
 
 expt_num = f'{datetime.now().strftime("%y%m%d_%H%M%S_%f")}'
 set_seed(random_seed)
@@ -130,7 +134,11 @@ for cv_num, (train_idx, test_idx) in enumerate(kf.split(x_train)):
 
 
     # TRAIN
-    model = NCF(num_users, num_items, embedding_k)
+    if base_model == "ncf":
+        model = NCF(num_users, num_items, embedding_k)
+    elif base_model == "mf":
+        model = MF(num_users, num_items, embedding_k)
+
     model = model.to(device)
     optimizer = torch.optim.Adam(model.parameters(), lr=lr, weight_decay=weight_decay)
     loss_fcn = lambda x, y, z: F.binary_cross_entropy(x, y, z, reduction="none")

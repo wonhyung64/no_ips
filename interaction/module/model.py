@@ -166,6 +166,18 @@ class IpsV2(nn.Module):
             num_users = self.num_users, num_items = self.num_items, embedding_k=self.embedding_k, *args, **kwargs)
 
 
+class IpsV2MF(nn.Module):
+    def __init__(self, num_users, num_items, embedding_k=4, *args, **kwargs):
+        super().__init__()
+        self.num_users = num_users
+        self.num_items = num_items
+        self.embedding_k = embedding_k
+        self.prediction_model = MF(
+            num_users = self.num_users, num_items = self.num_items, embedding_k=self.embedding_k, *args, **kwargs)       
+        self.propensity_model = LinearCF(
+            num_users = self.num_users, num_items = self.num_items, embedding_k=self.embedding_k, *args, **kwargs)
+
+
 class NCF_AKBIPS_Exp(nn.Module):
     def __init__(self, num_users, num_items, embedding_k=4, dataset_name="coat", *args, **kwargs):
         super().__init__()

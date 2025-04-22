@@ -43,6 +43,9 @@ parser.add_argument("--random-seed", type=int, default=0)
 parser.add_argument("--evaluate-interval", type=int, default=50)
 parser.add_argument("--top-k-list", type=list, default=[1,3,5,7,10])
 parser.add_argument("--data-dir", type=str, default="../data")
+
+parser.add_argument("--base-model", type=str, default="ncf") # ["ncf", "mf"]
+
 try:
     args = parser.parse_args()
 except:
@@ -60,6 +63,7 @@ data_dir = args.data_dir
 dataset_name = args.dataset_name
 loss_type = args.loss_type
 alpha = args.alpha
+base_model = args.base_model
 
 expt_num = f'{datetime.now().strftime("%y%m%d_%H%M%S_%f")}'
 set_seed(random_seed)
@@ -96,7 +100,11 @@ for cv_num, (train_idx, test_idx) in enumerate(kf.split(x_train)):
     total_batch = num_samples // batch_size
 
     # TRAIN
-    model = SharedNCF(num_users, num_items, embedding_k)
+    if base_model == "ncf":
+        model = SharedNCF(num_users, num_items, embedding_k)
+    elif base_model == "mf":
+        model = SharedMF(num_users, num_items, embedding_k)
+
     model = model.to(device)
     optimizer = torch.optim.Adam(model.parameters(), lr=lr, weight_decay=weight_decay)
     x_test_tensor = torch.LongTensor(x_test-1).to(device)
