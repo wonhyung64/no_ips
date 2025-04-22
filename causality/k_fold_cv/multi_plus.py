@@ -40,6 +40,7 @@ parser.add_argument("--top-k-list", type=list, default=[1,3,5,7,10,100])
 parser.add_argument("--data-dir", type=str, default="../data")
 parser.add_argument("--propensity", type=str, default="true")#[pred,true]
 parser.add_argument("--alpha", type=float, default=1.) # [2., 1., 0.1, 0.01, 0.001]
+parser.add_argument("--gamma", type=float, default=1.)
 
 try:
     args = parser.parse_args()
@@ -59,6 +60,7 @@ dataset_name = args.dataset_name
 loss_type = args.loss_type
 propensity = args.propensity
 alpha = args.alpha
+gamma = args.gamma
 
 expt_num = f'{datetime.now().strftime("%y%m%d_%H%M%S_%f")}'
 set_seed(random_seed)
@@ -158,7 +160,7 @@ for cv_num, (train_idx, test_idx) in enumerate(kf.split(x_train)):
 
             rec_loss = nn.functional.binary_cross_entropy(
                 nn.Sigmoid()(pred_y1), sub_y, weight=inv_prop, reduction="none")
-            y1_loss = torch.mean(rec_loss * sub_t)
+            y1_loss = torch.mean(rec_loss * sub_t) * gamma
             epoch_y1_loss += y1_loss
 
             ctr_loss = nn.functional.binary_cross_entropy(nn.Sigmoid()(ctr), sub_t) * alpha
