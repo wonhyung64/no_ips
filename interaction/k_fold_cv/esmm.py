@@ -30,7 +30,7 @@ except:
 #%%
 # SETTINGS
 parser = argparse.ArgumentParser()
-parser.add_argument("--embedding-k", type=int, default=18)
+parser.add_argument("--embedding-k", type=int, default=64)
 parser.add_argument("--lr", type=float, default=1e-8)
 parser.add_argument("--weight-decay", type=float, default=0.)
 parser.add_argument("--batch-size", type=int, default=2048)
