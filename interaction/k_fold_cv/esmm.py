@@ -103,7 +103,7 @@ for cv_num, (train_idx, test_idx) in enumerate(kf.split(x_train)):
     total_batch = num_samples // batch_size
 
     # TRAIN
-    if base_mode == "ncf":
+    if base_model == "ncf":
         model = SharedNCF(num_users, num_items, embedding_k)
     elif base_model == "mf":
         model = SharedMF(num_users, num_items, embedding_k)
