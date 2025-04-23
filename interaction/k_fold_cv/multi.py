@@ -14,7 +14,7 @@ from sklearn.model_selection import KFold
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from module.model import SharedNCF
+from module.model import SharedNCF, SharedMF
 from module.metric import ndcg_func, recall_func, ap_func
 from module.dataset import binarize, load_data, generate_total_sample
 from module.utils import set_device, set_seed
