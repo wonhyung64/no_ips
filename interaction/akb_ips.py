@@ -11,7 +11,7 @@ import torch.nn.functional as F
 from datetime import datetime
 from sklearn.metrics import roc_auc_score
 
-from module.model import NCF_AKBIPS_Exp, NCF
+from module.model import NCF_AKBIPS_Exp, NCF, MF_AKBIPS_Exp
 from module.metric import ndcg_func, recall_func, ap_func
 from module.utils import set_seed, set_device, estimate_ips_bayes
 from module.dataset import binarize, generate_total_sample, load_data
@@ -26,18 +26,10 @@ except:
 # SETTINGS
 parser = argparse.ArgumentParser()
 
-"""coat"""
 parser.add_argument("--lr1", type=float, default=1e-3)
 parser.add_argument("--lamb1", type=float, default=1e-5)
 parser.add_argument("--batch-size", type=int, default=4096)
 parser.add_argument("--dataset-name", type=str, default="coat")
-
-"""yahoo_r3"""
-# parser.add_argument("--lr1", type=float, default=1e-4)
-# parser.add_argument("--lamb1", type=float, default=1e-4)
-# parser.add_argument("--batch-size", type=int, default=8192)
-# parser.add_argument("--dataset-name", type=str, default="yahoo_r3")
-
 parser.add_argument("--G", type=int, default=1)
 parser.add_argument("--embedding-k", type=int, default=64)
 parser.add_argument("--lr2", type=float, default=0.05)
@@ -53,6 +45,7 @@ parser.add_argument("--evaluate-interval", type=int, default=50)
 parser.add_argument("--top-k-list", type=list, default=[1,3,5,7,10])
 parser.add_argument("--data-dir", type=str, default="./data")
 parser.add_argument("--random-seed", type=int, default=0)
+parser.add_argument("--base-model", type=str, default="ncf")
 
 try:
     args = parser.parse_args()
@@ -78,6 +71,7 @@ G = args.G
 C = args.C
 num_w_epo = args.num_w_epo
 J = args.J
+base_model = args.base_model
 
 expt_num = f'{datetime.now().strftime("%y%m%d_%H%M%S_%f")}'
 set_seed(random_seed)
@@ -87,7 +81,7 @@ device = set_device()
 configs = vars(args)
 configs["device"] = device
 wandb_var = wandb.init(project="no_ips", config=configs)
-wandb.run.name = f"akb_ips_{expt_num}"
+wandb.run.name = f"akb_ips_interaction_{expt_num}"
 
 # DATA LOADER
 x_train, x_test = load_data(data_dir, dataset_name)
@@ -151,7 +145,11 @@ for epoch in range(1, num_epochs+1):
 num_sample = len(x_train)
 total_batch = num_sample // batch_size
 
-model = NCF_AKBIPS_Exp(num_users, num_items, embedding_k, dataset_name)
+if base_model == "ncf":
+    model = NCF_AKBIPS_Exp(num_users, num_items, embedding_k, dataset_name)
+elif base_model == "mf":
+    model = MF_AKBIPS_Exp(num_users, num_items, embedding_k, dataset_name)
+
 model = model.to(device)
 
 optimizer_prediction = torch.optim.Adam(
@@ -293,3 +291,5 @@ print(f"AP: {ap_dict}")
 print(f"AUC: {auc}")
 
 wandb.finish()
+
+torch.save(model.state_dict(), f"./akb_ips_{dataset_name}_seed{random_seed}.pth")

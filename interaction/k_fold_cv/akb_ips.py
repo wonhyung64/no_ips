@@ -14,7 +14,7 @@ from sklearn.model_selection import KFold
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from module.model import NCF_AKBIPS_Exp, NCF
+from module.model import NCF_AKBIPS_Exp, NCF, MF_AKBIPS_Exp
 from module.metric import ndcg_func, recall_func, ap_func
 from module.utils import set_seed, set_device, estimate_ips_bayes
 from module.dataset import binarize, generate_total_sample, load_data
@@ -49,6 +49,7 @@ parser.add_argument("--evaluate-interval", type=int, default=50)
 parser.add_argument("--top-k-list", type=list, default=[1,3,5,7,10])
 parser.add_argument("--data-dir", type=str, default="../data")
 parser.add_argument("--random-seed", type=int, default=0)
+parser.add_argument("--base-model", type=str, default="ncf") # ["ncf","mf"]
 
 try:
     args = parser.parse_args()
@@ -74,6 +75,7 @@ G = args.G
 C = args.C
 num_w_epo = args.num_w_epo
 J = args.J
+base_model = args.base_model
 
 expt_num = f'{datetime.now().strftime("%y%m%d_%H%M%S_%f")}'
 set_seed(random_seed)
@@ -91,6 +93,9 @@ print(f"# user: {num_users}, # item: {num_items}")
 
 kf = KFold(n_splits=4, shuffle=True, random_state=random_seed)
 for cv_num, (train_idx, test_idx) in enumerate(kf.split(x_train)):
+
+    if cv_num > 1: #need to delete
+        continue
 
     configs = vars(args)
     configs["device"] = device
@@ -154,7 +159,11 @@ for cv_num, (train_idx, test_idx) in enumerate(kf.split(x_train)):
     num_sample = len(x_train)
     total_batch = num_sample // batch_size
 
-    model = NCF_AKBIPS_Exp(num_users, num_items, embedding_k, dataset_name)
+    if base_model == "ncf":
+        model = NCF_AKBIPS_Exp(num_users, num_items, embedding_k, dataset_name)
+    elif base_model == "mf":
+        model = MF_AKBIPS_Exp(num_users, num_items, embedding_k, dataset_name)
+
     model = model.to(device)
 
     optimizer_prediction = torch.optim.Adam(

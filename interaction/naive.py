@@ -8,7 +8,7 @@ import scipy.sparse as sps
 from datetime import datetime
 from sklearn.metrics import roc_auc_score
 
-from module.model import NCF
+from module.model import NCF, MF
 from module.metric import ndcg_func, recall_func, ap_func
 from module.dataset import binarize, load_data, generate_total_sample
 from module.utils import set_device, set_seed
@@ -23,25 +23,18 @@ except:
 # SETTINGS
 parser = argparse.ArgumentParser()
 
-"""coat"""
 parser.add_argument("--embedding-k", type=int, default=64)
 parser.add_argument("--lr", type=float, default=1e-4)
 parser.add_argument("--weight-decay", type=float, default=1e-4)
 parser.add_argument("--batch-size", type=int, default=4096)
 parser.add_argument("--dataset-name", type=str, default="coat")
-
-"""yahoo"""
-# parser.add_argument("--embedding-k", type=int, default=64)
-# parser.add_argument("--lr", type=float, default=1e-4)
-# parser.add_argument("--weight-decay", type=float, default=1e-5)
-# parser.add_argument("--batch-size", type=int, default=8192)
-# parser.add_argument("--dataset-name", type=str, default="yahoo_r3")
-
 parser.add_argument("--num-epochs", type=int, default=1000)
 parser.add_argument("--random-seed", type=int, default=0)
 parser.add_argument("--evaluate-interval", type=int, default=50)
 parser.add_argument("--top-k-list", type=list, default=[1,3,5,7,10])
 parser.add_argument("--data-dir", type=str, default="./data")
+parser.add_argument("--base-model", type=str, default="ncf")
+
 try:
     args = parser.parse_args()
 except:
@@ -57,6 +50,7 @@ evaluate_interval = args.evaluate_interval
 top_k_list = args.top_k_list
 data_dir = args.data_dir
 dataset_name = args.dataset_name
+base_model = args.base_model
 
 expt_num = f'{datetime.now().strftime("%y%m%d_%H%M%S_%f")}'
 set_seed(random_seed)
@@ -67,7 +61,7 @@ device = set_device()
 configs = vars(args)
 configs["device"] = device
 wandb_var = wandb.init(project="no_ips", config=configs)
-wandb.run.name = f"main_mle_{expt_num}"
+wandb.run.name = f"naive_interaction_{expt_num}"
 
 
 # DATA LOADER
@@ -91,7 +85,11 @@ num_samples = len(x_all)
 total_batch = num_samples // batch_size
 
 # TRAIN
-model = NCF(num_users, num_items, embedding_k)
+if base_model == "ncf":
+    model = NCF(num_users, num_items, embedding_k)
+elif base_model == "mf":
+    model = MF(num_users, num_items, embedding_k)
+
 model = model.to(device)
 optimizer = torch.optim.Adam(model.parameters(), lr=lr, weight_decay=weight_decay)
 loss_fcn = torch.nn.BCELoss(reduction="none")
@@ -171,3 +169,4 @@ print(f"AUC: {auc}")
 
 wandb.finish()
 
+torch.save(model.state_dict(), f"./naive_{dataset_name}_seed{random_seed}.pth")

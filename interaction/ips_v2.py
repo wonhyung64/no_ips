@@ -12,7 +12,7 @@ import torch.nn.functional as F
 from datetime import datetime
 from sklearn.metrics import roc_auc_score
 
-from module.model import IpsV2
+from module.model import IpsV2, IpsV2MF
 from module.metric import ndcg_func, recall_func, ap_func
 from module.utils import set_seed, set_device
 from module.dataset import binarize, generate_total_sample, load_data
@@ -27,18 +27,10 @@ except:
 # SETTINGS
 parser = argparse.ArgumentParser()
 
-"""coat"""
 parser.add_argument("--lr", type=float, default=1e-4)
 parser.add_argument("--weight-decay", type=float, default=1e-4)
 parser.add_argument("--batch-size", type=int, default=4096)
 parser.add_argument("--dataset-name", type=str, default="coat")
-
-"""yahoo"""
-# parser.add_argument("--lr", type=float, default=1e-4)
-# parser.add_argument("--weight-decay", type=float, default=1e-4)
-# parser.add_argument("--batch-size", type=int, default=8192)
-# parser.add_argument("--dataset-name", type=str, default="yahoo_r3")
-
 parser.add_argument("--embedding-k", type=int, default=64)
 parser.add_argument("--num-epochs", type=int, default=1000)
 parser.add_argument("--random-seed", type=int, default=0)
@@ -50,6 +42,8 @@ parser.add_argument("--beta", type=float, default=1.)
 parser.add_argument("--eta", type=float, default=1.)
 parser.add_argument("--gamma", type=float, default=0.1)
 parser.add_argument("--G", type=int, default=1)
+parser.add_argument("--base-model", type=str, default="ncf")
+
 
 try:
     args = parser.parse_args()
@@ -71,6 +65,7 @@ beta = args.beta
 eta = args.eta
 gamma = args.gamma
 G = args.G
+base_model = args.base_model
 
 expt_num = f'{datetime.now().strftime("%y%m%d_%H%M%S_%f")}'
 set_seed(random_seed)
@@ -81,7 +76,7 @@ device = set_device()
 configs = vars(args)
 configs["device"] = device
 wandb_var = wandb.init(project="no_ips", config=configs)
-wandb.run.name = f"ips_v2_{expt_num}"
+wandb.run.name = f"ips_v2_interaction_{expt_num}"
 
 
 # DATA LOADER
@@ -98,7 +93,11 @@ num_items = x_train[:,1].max()
 print(f"# user: {num_users}, # item: {num_items}")
 
 # TRAIN
-model = IpsV2(num_users, num_items, embedding_k)
+if base_model == "ncf":
+    model = IpsV2(num_users, num_items, embedding_k)
+elif base_model == "mf":
+    model = IpsV2MF(num_users, num_items, embedding_k)
+
 model = model.to(device)
 optimizer = torch.optim.Adam(model.parameters(), lr=lr, weight_decay=weight_decay)
 
@@ -200,3 +199,5 @@ print(f"AP: {ap_dict}")
 print(f"AUC: {auc}")
 
 wandb.finish()
+
+torch.save(model.state_dict(), f"./ips_v2_{dataset_name}_seed{random_seed}.pth")

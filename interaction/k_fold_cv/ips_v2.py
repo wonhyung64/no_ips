@@ -15,7 +15,7 @@ from sklearn.model_selection import KFold
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from module.model import IpsV2
+from module.model import IpsV2, IpsV2MF
 from module.metric import ndcg_func, recall_func, ap_func
 from module.utils import set_seed, set_device
 from module.dataset import binarize, generate_total_sample, load_data
@@ -47,6 +47,9 @@ parser.add_argument("--eta", type=float, default=1.)
 parser.add_argument("--gamma", type=float, default=0.1)
 parser.add_argument("--G", type=int, default=1)
 
+parser.add_argument("--base-model", type=str, default="ncf") # ["ncf", "mf"]
+
+
 try:
     args = parser.parse_args()
 except:
@@ -67,6 +70,7 @@ beta = args.beta
 eta = args.eta
 gamma = args.gamma
 G = args.G
+base_model = args.base_model
 
 expt_num = f'{datetime.now().strftime("%y%m%d_%H%M%S_%f")}'
 set_seed(random_seed)
@@ -84,6 +88,9 @@ print(f"# user: {num_users}, # item: {num_items}")
 
 kf = KFold(n_splits=4, shuffle=True, random_state=random_seed)
 for cv_num, (train_idx, test_idx) in enumerate(kf.split(x_train)):
+
+    if cv_num > 1: #need to delete
+        continue
 
     configs = vars(args)
     configs["device"] = device
@@ -104,7 +111,11 @@ for cv_num, (train_idx, test_idx) in enumerate(kf.split(x_train)):
     total_batch = num_sample // batch_size
 
     # TRAIN
-    model = IpsV2(num_users, num_items, embedding_k)
+    if base_model == "ncf":
+        model = IpsV2(num_users, num_items, embedding_k)
+    elif base_model == "mf":
+        model = IpsV2MF(num_users, num_items, embedding_k)
+        
     model = model.to(device)
     optimizer = torch.optim.Adam(model.parameters(), lr=lr, weight_decay=weight_decay)
 
