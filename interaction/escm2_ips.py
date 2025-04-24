@@ -11,7 +11,7 @@ import torch.nn.functional as F
 from datetime import datetime
 from sklearn.metrics import roc_auc_score
 
-from module.model import SharedNCF
+from module.model import SharedNCF, SharedMF
 from module.metric import ndcg_func, recall_func, ap_func
 from module.utils import set_seed, set_device
 from module.dataset import binarize, generate_total_sample, load_data
@@ -26,7 +26,6 @@ except:
 # SETTINGS
 parser = argparse.ArgumentParser()
 
-"""coat"""
 parser.add_argument("--embedding-k", type=int, default=64)
 parser.add_argument("--lr", type=float, default=1e-3)
 parser.add_argument("--weight-decay", type=float, default=1e-4)
@@ -34,23 +33,13 @@ parser.add_argument("--batch-size", type=int, default=4096)
 parser.add_argument("--dataset-name", type=str, default="coat")
 parser.add_argument("--alpha", type=float, default=2.)
 parser.add_argument("--beta", type=float, default=1.)
-
-"""yahoo"""
-# parser.add_argument("--embedding-k", type=int, default=64)
-# parser.add_argument("--lr", type=float, default=1e-4)
-# parser.add_argument("--weight-decay", type=float, default=1e-4)
-# parser.add_argument("--batch-size", type=int, default=8192)
-# parser.add_argument("--dataset-name", type=str, default="yahoo_r3")
-# parser.add_argument("--alpha", type=float, default=2.)
-# parser.add_argument("--beta", type=float, default=1.)
-
 parser.add_argument("--num-epochs", type=int, default=1000)
 parser.add_argument("--random-seed", type=int, default=0)
 parser.add_argument("--evaluate-interval", type=int, default=50)
 parser.add_argument("--top-k-list", type=list, default=[1,3,5,7,10])
 parser.add_argument("--data-dir", type=str, default="./data")
-
 parser.add_argument("--G", type=int, default=1)
+parser.add_argument("--base-model", type=str, default="ncf")
 
 try:
     args = parser.parse_args()
@@ -70,6 +59,7 @@ dataset_name = args.dataset_name
 alpha = args.alpha
 beta = args.beta
 G = args.G
+base_model = args.base_model
 
 expt_num = f'{datetime.now().strftime("%y%m%d_%H%M%S_%f")}'
 set_seed(random_seed)
@@ -103,7 +93,11 @@ num_samples = len(x_all)
 total_batch = num_samples // batch_size
 
 # TRAIN
-model = SharedNCF(num_users, num_items, embedding_k)
+if base_model == "ncf":
+    model = SharedNCF(num_users, num_items, embedding_k)
+elif base_model == "mf":
+    model = SharedMF(num_users, num_items, embedding_k)
+
 model = model.to(device)
 optimizer = torch.optim.Adam(model.parameters(), lr=lr, weight_decay=weight_decay)
 loss_fcn = torch.nn.BCELoss()
