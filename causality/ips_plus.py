@@ -278,3 +278,6 @@ wandb_var.log(cp_dict)
 wandb_var.log(car_dict)
 
 wandb.finish()
+
+torch.save(model.state_dict(), f"./weights/ips_plus_{dataset_name[:3]}_{random_seed}.pth")
+torch.save(model.state_dict(), f"./weights/ips_plus_ps_model_{dataset_name[:3]}_{random_seed}.pth")
