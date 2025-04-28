@@ -76,6 +76,9 @@ print(f"# user: {num_users}, # item: {num_items}")
 kf = KFold(n_splits=4, shuffle=True, random_state=random_seed)
 for cv_num, (train_idx, test_idx) in enumerate(kf.split(x_train)):
 
+    if (alpha == 0.01) & (cv_num < 2):
+        continue
+    
     configs = vars(args)
     configs["device"] = device
     configs["cv_num"] = cv_num
