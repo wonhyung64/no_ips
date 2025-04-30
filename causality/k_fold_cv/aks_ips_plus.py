@@ -13,7 +13,7 @@ from sklearn.model_selection import KFold
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from module.model import NCFPlus, LinearCFPlus, NCF
+from module.model import NCF, NCFPlus,  NCF_AKBIPS_ExpPlus
 from module.dataset import load_data, generate_total_sample
 from module.utils import set_device, set_seed
 
@@ -24,23 +24,30 @@ except:
     import wandb
 
 
+#%%
 parser = argparse.ArgumentParser()
 
-parser.add_argument("--embedding-k", type=int, default=64)
-parser.add_argument("--lr", type=float, default=1e-4)
-parser.add_argument("--weight-decay", type=float, default=1e-4)
+parser.add_argument("--lr1", type=float, default=0.01)
+parser.add_argument("--lamb1", type=float, default=1e-4)
 parser.add_argument("--batch-size", type=int, default=4096)
-parser.add_argument("--dataset-name", type=str, default="original")#[original, personalized]
-
-parser.add_argument("--loss-type", type=str, default="naive")#[naive, ips]
+parser.add_argument("--dataset-name", type=str, default="original")
+parser.add_argument("--G", type=int, default=1)
+parser.add_argument("--embedding-k", type=int, default=64)
+parser.add_argument("--lr2", type=float, default=0.05)
+parser.add_argument("--lr3", type=float, default=0.05)
+parser.add_argument("--lamb2", type=float, default=0.)
+parser.add_argument("--lamb3", type=float, default=0.)
+parser.add_argument("--J", type=int, default=3)
+parser.add_argument("--gamma", type=float, default=1.)
+parser.add_argument("--C", type=float, default=1e-5)
+parser.add_argument("--num-w-epo", type=int, default=3)
 parser.add_argument("--num-epochs", type=int, default=1000)
-parser.add_argument("--random-seed", type=int, default=0)
 parser.add_argument("--evaluate-interval", type=int, default=50)
-parser.add_argument("--top-k-list", type=list, default=[1,3,5,7,10,100])
+parser.add_argument("--top-k-list", type=list, default=[1,3,5,7,10])
 parser.add_argument("--data-dir", type=str, default="../data")
+parser.add_argument("--random-seed", type=int, default=0)
+parser.add_argument("--base-model", type=str, default="ncf") # ["ncf","mf"]
 parser.add_argument("--propensity", type=str, default="pred")#[pred,true]
-parser.add_argument("--base-model", type=str, default="ncf")#[ncf, linearcf]
-
 
 try:
     args = parser.parse_args()
@@ -48,8 +55,12 @@ except:
     args = parser.parse_args([])
 
 embedding_k = args.embedding_k
-lr = args.lr
-weight_decay = args.weight_decay
+lr1 = args.lr1
+lr2 = args.lr2
+lr3 = args.lr3
+lamb1 = args.lamb1
+lamb2 = args.lamb2
+lamb3 = args.lamb3
 batch_size = args.batch_size
 num_epochs = args.num_epochs
 random_seed = args.random_seed
@@ -57,8 +68,11 @@ evaluate_interval = args.evaluate_interval
 top_k_list = args.top_k_list
 data_dir = args.data_dir
 dataset_name = args.dataset_name
-loss_type = args.loss_type
-propensity = args.propensity
+gamma = args.gamma
+G = args.G
+C = args.C
+num_w_epo = args.num_w_epo
+J = args.J
 base_model = args.base_model
 
 expt_num = f'{datetime.now().strftime("%y%m%d_%H%M%S_%f")}'
@@ -74,15 +88,12 @@ print(f"# user: {num_users}, # item: {num_items}")
 
 kf = KFold(n_splits=4, shuffle=True, random_state=random_seed)
 for cv_num, (train_idx, test_idx) in enumerate(kf.split(x_train)):
-    
-    if cv_num > 1:
-        continue
 
     configs = vars(args)
     configs["device"] = device
     configs["cv_num"] = cv_num
     wandb_var = wandb.init(project="no_ips", config=configs)
-    wandb.run.name = f"cv_single_plus_{loss_type}_causality_{expt_num}"
+    wandb.run.name = f"cv_akb_ips_plus_causality_{expt_num}"
 
 
     x_train = x_train_cv[train_idx]
@@ -117,17 +128,14 @@ for cv_num, (train_idx, test_idx) in enumerate(kf.split(x_train)):
     y0_entire = sps.csr_matrix((y0_train, (x0_train[:, 0], x0_train[:, 1])), shape=(num_users, num_items), dtype=np.float32).toarray().reshape(-1)
     ps0_entire = sps.csr_matrix((ps0_train, (x0_train[:, 0], x0_train[:, 1])), shape=(num_users, num_items), dtype=np.float32).toarray().reshape(-1)
 
-    x1_test_tensor = torch.LongTensor(x1_test).to(device)
-    x0_test_tensor = torch.LongTensor(x0_test).to(device)
-
     num_samples = len(x_all)
     total_batch = num_samples // batch_size
+
 
     ps_model = NCF(num_users, num_items, embedding_k)
     ps_model = ps_model.to(device)
     optimizer = torch.optim.Adam(ps_model.parameters(), lr=1e-2, weight_decay=1e-4)
     loss_fcn = torch.nn.BCELoss()
-
 
     for epoch in range(1, num_epochs+1):
         ul_idxs = np.arange(x_all.shape[0]) # all
@@ -161,31 +169,39 @@ for cv_num, (train_idx, test_idx) in enumerate(kf.split(x_train)):
 
         wandb_var.log(loss_dict)
 
+    x1_test_tensor = torch.LongTensor(x1_test).to(device)
+    x0_test_tensor = torch.LongTensor(x0_test).to(device)
 
-    if base_model == "ncf":
-        model = NCFPlus(num_users, num_items, embedding_k)
-    elif base_model == "linearcf":
-        model = LinearCFPlus(num_users, num_items, embedding_k)
+    # conditional outcome modeling
+    model = NCF_AKBIPS_ExpPlus(num_users, num_items, embedding_k)
 
     model = model.to(device)
-    optimizer = torch.optim.Adam(model.parameters(), lr=lr, weight_decay=weight_decay)
 
-    inv_prop = torch.tensor([1.]).to(device)
+    optimizer_prediction = torch.optim.Adam(
+        model.prediction_model.parameters(), lr=lr1, weight_decay=lamb1)
+    optimizer_weight = torch.optim.Adam(
+        model.weight_model.parameters(), lr=lr2, weight_decay=lamb2)
+    optimizer_epo = torch.optim.Adam(
+        [model.epsilon], lr=lr3, weight_decay=lamb3)
 
+    ps_model.eval()
+    loss_epsilon_last = 0
     for epoch in range(1, num_epochs+1):
+        obs1_idx = np.arange()
         all_idx = np.arange(num_samples)
         np.random.shuffle(all_idx)
         model.train()
 
+        epoch_pred_y1_loss = 0.
+        epoch_pred_y0_loss = 0.
+        epoch_weight_model_loss = 0.
         epoch_total_loss = 0.
-        epoch_y1_loss = 0.
-        epoch_y0_loss = 0.
 
         for idx in range(total_batch):
-            # mini-batch training
-            selected_idx = all_idx[batch_size*idx:(idx+1)*batch_size]
-            sub_x = x_all[selected_idx]
-            sub_x = torch.LongTensor(sub_x).to(device)
+
+            x_all_idx = all_idx[batch_size*idx:(idx+1)*batch_size]
+            x1_sampled = x1_train[x_all_idx]
+            x_sampled = torch.LongTensor(x_sampled).to(device)
 
             sub_y = y1_entire[selected_idx]
             sub_y = torch.Tensor(sub_y).unsqueeze(-1).to(device)
@@ -246,30 +262,21 @@ for cv_num, (train_idx, test_idx) in enumerate(kf.split(x_train)):
         if epoch % evaluate_interval == 0:
             model.eval()
 
-            pred_y1, _ = model(x1_test_tensor)
-            _, pred_y0 = model(x0_test_tensor)
-
-            nll_y1 = nn.BCELoss()(nn.Sigmoid()(pred_y1), torch.Tensor(y1_test).unsqueeze(-1).to(device))
-            nll_y1 = nll_y1.detach().cpu().item()
+            pred_y1, pred_y0 = model(x1_test_tensor)
             pred_y1 = pred_y1.detach().cpu().numpy()
             auc_y1 = roc_auc_score(y1_test, pred_y1)
 
-            nll_y0 = nn.BCELoss()(nn.Sigmoid()(pred_y0), torch.Tensor(y0_test).unsqueeze(-1).to(device))
-            nll_y0 = nll_y0.detach().cpu().item()
+            pred_y1, pred_y0 = model(x0_test_tensor)
             pred_y0 = pred_y0.detach().cpu().numpy()
             auc_y0 = roc_auc_score(y0_test, pred_y0)
 
             wandb_var.log({
                 "auc_y1": auc_y1,
                 "auc_y0": auc_y0,
-                "nll_y1": nll_y1,
-                "nll_y0": nll_y0,
                 })
 
     print(f"AUC_y1: {auc_y1}")
     print(f"AUC_y0: {auc_y0}")
-    print(f"NLL_y1: {nll_y1}")
-    print(f"NLL_y0: {nll_y0}")
 
     wandb.finish()
 
