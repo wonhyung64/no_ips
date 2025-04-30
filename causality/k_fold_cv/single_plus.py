@@ -40,6 +40,7 @@ parser.add_argument("--top-k-list", type=list, default=[1,3,5,7,10,100])
 parser.add_argument("--data-dir", type=str, default="../data")
 parser.add_argument("--propensity", type=str, default="pred")#[pred,true]
 parser.add_argument("--base-model", type=str, default="ncf")#[ncf, linearcf]
+parser.add_argument("--device", type=str, default="none")
 
 
 try:
@@ -60,10 +61,11 @@ dataset_name = args.dataset_name
 loss_type = args.loss_type
 propensity = args.propensity
 base_model = args.base_model
+device = args.device
 
 expt_num = f'{datetime.now().strftime("%y%m%d_%H%M%S_%f")}'
 set_seed(random_seed)
-device = set_device()
+device = set_device(device)
 
 x_train, x_test = load_data(data_dir, dataset_name)
 x_train_cv, y_train_cv, t_train_cv, ps_train_cv = x_train[:,:2].astype(int), x_train[:,2:3], x_train[:,3:4], x_train[:,4:]

@@ -13,13 +13,14 @@ def set_seed(random_seed):
     random.seed(random_seed)
 
 
-def set_device():
-    if torch.cuda.is_available():
-        device = "cuda"
-    elif torch.backends.mps.is_available():
-        device = "mps"
-    else: 
-        device = "cpu"
+def set_device(device):
+    if device == "none":
+        if torch.cuda.is_available():
+            device = "cuda"
+        elif torch.backends.mps.is_available():
+            device = "mps"
+        else: 
+            device = "cpu"
 
     return device
 
