@@ -13,7 +13,7 @@ from sklearn.model_selection import KFold
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from module.model import NCFPlus, NCF
+from module.model import NCFPlus, LinearCFPlus, NCF
 from module.dataset import load_data, generate_total_sample
 from module.utils import set_device, set_seed
 
@@ -39,6 +39,8 @@ parser.add_argument("--evaluate-interval", type=int, default=50)
 parser.add_argument("--top-k-list", type=list, default=[1,3,5,7,10,100])
 parser.add_argument("--data-dir", type=str, default="../data")
 parser.add_argument("--propensity", type=str, default="true")#[pred,true]
+parser.add_argument("--base-model", type=str, default="ncf")#[ncf, linearcf]
+
 
 try:
     args = parser.parse_args()
@@ -57,6 +59,7 @@ data_dir = args.data_dir
 dataset_name = args.dataset_name
 loss_type = args.loss_type
 propensity = args.propensity
+base_model = args.base_model
 
 expt_num = f'{datetime.now().strftime("%y%m%d_%H%M%S_%f")}'
 set_seed(random_seed)
@@ -71,6 +74,9 @@ print(f"# user: {num_users}, # item: {num_items}")
 
 kf = KFold(n_splits=4, shuffle=True, random_state=random_seed)
 for cv_num, (train_idx, test_idx) in enumerate(kf.split(x_train)):
+    
+    if cv_num > 1:
+        continue
 
     configs = vars(args)
     configs["device"] = device
@@ -111,14 +117,17 @@ for cv_num, (train_idx, test_idx) in enumerate(kf.split(x_train)):
     y0_entire = sps.csr_matrix((y0_train, (x0_train[:, 0], x0_train[:, 1])), shape=(num_users, num_items), dtype=np.float32).toarray().reshape(-1)
     ps0_entire = sps.csr_matrix((ps0_train, (x0_train[:, 0], x0_train[:, 1])), shape=(num_users, num_items), dtype=np.float32).toarray().reshape(-1)
 
+    x1_test_tensor = torch.LongTensor(x1_test).to(device)
+    x0_test_tensor = torch.LongTensor(x0_test).to(device)
+
     num_samples = len(x_all)
     total_batch = num_samples // batch_size
-
 
     ps_model = NCF(num_users, num_items, embedding_k)
     ps_model = ps_model.to(device)
     optimizer = torch.optim.Adam(ps_model.parameters(), lr=1e-2, weight_decay=1e-4)
     loss_fcn = torch.nn.BCELoss()
+
 
     for epoch in range(1, num_epochs+1):
         ul_idxs = np.arange(x_all.shape[0]) # all
@@ -152,11 +161,12 @@ for cv_num, (train_idx, test_idx) in enumerate(kf.split(x_train)):
 
         wandb_var.log(loss_dict)
 
-    x1_test_tensor = torch.LongTensor(x1_test).to(device)
-    x0_test_tensor = torch.LongTensor(x0_test).to(device)
 
-    # conditional outcome modeling
-    model = NCFPlus(num_users, num_items, embedding_k)
+    if base_model == "ncf":
+        model = NCFPlus(num_users, num_items, embedding_k)
+    elif base_model == "linearcf":
+        model = LinearCFPlus(num_users, num_items, embedding_k)
+
     model = model.to(device)
     optimizer = torch.optim.Adam(model.parameters(), lr=lr, weight_decay=weight_decay)
 
@@ -236,21 +246,30 @@ for cv_num, (train_idx, test_idx) in enumerate(kf.split(x_train)):
         if epoch % evaluate_interval == 0:
             model.eval()
 
-            pred_y1, pred_y0 = model(x1_test_tensor)
+            pred_y1, _ = model(x1_test_tensor)
+            _, pred_y0 = model(x0_test_tensor)
+
+            nll_y1 = nn.BCELoss()(nn.Sigmoid()(pred_y1), torch.Tensor(y1_test).unsqueeze(-1).to(device))
+            nll_y1 = nll_y1.detach().cpu().item()
             pred_y1 = pred_y1.detach().cpu().numpy()
             auc_y1 = roc_auc_score(y1_test, pred_y1)
 
-            pred_y1, pred_y0 = model(x0_test_tensor)
+            nll_y0 = nn.BCELoss()(nn.Sigmoid()(pred_y0), torch.Tensor(y0_test).unsqueeze(-1).to(device))
+            nll_y0 = nll_y0.detach().cpu().item()
             pred_y0 = pred_y0.detach().cpu().numpy()
             auc_y0 = roc_auc_score(y0_test, pred_y0)
 
             wandb_var.log({
                 "auc_y1": auc_y1,
                 "auc_y0": auc_y0,
+                "nll_y1": nll_y1,
+                "nll_y0": nll_y0,
                 })
 
     print(f"AUC_y1: {auc_y1}")
     print(f"AUC_y0: {auc_y0}")
+    print(f"NLL_y1: {nll_y1}")
+    print(f"NLL_y0: {nll_y0}")
 
     wandb.finish()
 
