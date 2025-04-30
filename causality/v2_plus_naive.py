@@ -28,6 +28,7 @@ parser.add_argument("--lr", type=float, default=1e-4)
 parser.add_argument("--weight-decay", type=float, default=1e-4)
 parser.add_argument("--alpha", type=float, default=2.)
 parser.add_argument("--beta", type=float, default=1.)
+parser.add_argument("--zeta", type=float, default=1.) # [2., 1., 0.1, 0.01, 0.001]
 
 parser.add_argument("--batch-size", type=int, default=4096)
 parser.add_argument("--embedding-k", type=int, default=64)
@@ -36,7 +37,6 @@ parser.add_argument("--random-seed", type=int, default=0)
 parser.add_argument("--evaluate-interval", type=int, default=50)
 parser.add_argument("--top-k-list", type=list, default=[10, 30, 100, 1372])
 parser.add_argument("--data-dir", type=str, default="./data")
-parser.add_argument("--propensity", type=str, default="pred")#[pred,true]
 parser.add_argument("--base-model", type=str, default="ncf")#[ncf, linearcf]
 parser.add_argument("--device", type=str, default="none")
 
@@ -59,6 +59,7 @@ dataset_name = args.dataset_name
 propensity = args.propensity
 alpha = args.alpha
 beta = args.beta
+zeta = args.zeta
 base_model = args.base_model
 device = args.device
 
@@ -70,7 +71,7 @@ device = set_device(device)
 configs = vars(args)
 configs["device"] = device
 wandb_var = wandb.init(project="no_ips", config=configs)
-wandb.run.name = f"escm2_plus_ips_causality_{expt_num}"
+wandb.run.name = f"v2_plus_naive_causality_{expt_num}"
 
 
 x_train, x_test = load_data(data_dir, dataset_name)
@@ -124,6 +125,7 @@ for epoch in range(1, num_epochs+1):
     epoch_t_loss = 0.
     epoch_y1_ctcvr_loss = 0.
     epoch_y0_ctcvr_loss = 0.
+    epoch_bmse_loss = 0.
 
     for idx in range(total_batch):
         # mini-batch training
@@ -140,19 +142,18 @@ for epoch in range(1, num_epochs+1):
 
         pred_y1, pred_y0, ctr= model(sub_x)
 
-        if propensity == "true":
-            inv_prop = 1/(sub_ps+1e-9)
-        elif propensity == "pred":
-            inv_prop = 1 / nn.Sigmoid()(ctr).detach()
-
         rec_loss = nn.functional.binary_cross_entropy(
-                nn.Sigmoid()(pred_y1), sub_y, weight=inv_prop, reduction="none")
+                nn.Sigmoid()(pred_y1), sub_y, reduction="none")
         y1_loss = torch.mean(rec_loss * sub_t)
 
         ctr_loss = nn.functional.binary_cross_entropy(nn.Sigmoid()(ctr), sub_t) * alpha
 
         ctcvr = nn.Sigmoid()(pred_y1) * nn.Sigmoid()(ctr)
         y1_ctcvr_loss = nn.functional.binary_cross_entropy(ctcvr, sub_y) * beta
+
+        ones_all = torch.ones(len(ctr)).unsqueeze(-1).to(device)
+        w_all = torch.divide(sub_t,nn.Sigmoid()(ctr)) - torch.divide((ones_all-sub_t),(ones_all-(1/nn.Sigmoid()(ctr))))
+        bmse_loss = (torch.mean(w_all * ctcvr))**2 * zeta
 
         sub_y = y0_entire[selected_idx]
         sub_y = torch.Tensor(sub_y).unsqueeze(-1).to(device)
@@ -161,25 +162,21 @@ for epoch in range(1, num_epochs+1):
         sub_ps = ps0_entire[selected_idx]
         sub_ps = torch.Tensor(sub_ps).unsqueeze(-1).to(device)
 
-        if propensity == "true":
-            inv_prop = 1/(sub_ps+1e-9)
-        elif propensity == "pred":
-            inv_prop = 1 / (1-nn.Sigmoid()(ctr).detach())
-
         rec_loss = nn.functional.binary_cross_entropy(
-            nn.Sigmoid()(pred_y0), sub_y, weight=inv_prop, reduction="none")
+            nn.Sigmoid()(pred_y0), sub_y, reduction="none")
         y0_loss = torch.mean(rec_loss * sub_t)
 
         ctcvr = nn.Sigmoid()(pred_y0) * (1-nn.Sigmoid()(ctr))
         y0_ctcvr_loss = nn.functional.binary_cross_entropy(ctcvr, sub_y) * beta
 
-        total_loss = y1_loss + y0_loss + ctr_loss + y1_ctcvr_loss + y0_ctcvr_loss
+        total_loss = y1_loss + y0_loss + ctr_loss + y1_ctcvr_loss + y0_ctcvr_loss + bmse_loss
 
         epoch_y1_loss += y1_loss
         epoch_y0_loss += y0_loss
         epoch_y1_ctcvr_loss += y1_ctcvr_loss
         epoch_y0_ctcvr_loss += y0_ctcvr_loss
         epoch_t_loss += ctr_loss
+        epoch_bmse_loss += bmse_loss
         epoch_total_loss += total_loss
 
         optimizer.zero_grad()
@@ -195,6 +192,7 @@ for epoch in range(1, num_epochs+1):
         'epoch_y0_ctcvr_loss': float(epoch_y0_ctcvr_loss.item()),
         'epoch_total_loss': float(epoch_total_loss.item()),
         'epoch_t_loss': float(epoch_t_loss.item()),
+        'epoch_bmse_loss': float(epoch_bmse_loss.item()),
     }
 
     wandb_var.log(loss_dict)
@@ -206,6 +204,11 @@ for epoch in range(1, num_epochs+1):
         pred_y1 = nn.Sigmoid()(pred_y1).detach().cpu().numpy()
         pred_y0 = nn.Sigmoid()(pred_y0).detach().cpu().numpy()
         pred = (pred_y1 - pred_y0).squeeze()
+
+        ncdcg_res = ncdcg_func(pred, x_test, cate_test, top_k_list)
+        ncdcg_dict: dict = {}
+        for top_k in top_k_list:
+            ncdcg_dict[f"ncdcg_{top_k}"] = np.mean(ncdcg_res[f"ncdcg_{top_k}"])
 
         cdcg_res = cdcg_func(pred, x_test, cate_test, top_k_list)
         cdcg_dict: dict = {}
@@ -229,12 +232,13 @@ for epoch in range(1, num_epochs+1):
         wandb_var.log(cp_dict)
         wandb_var.log(car_dict)
 
+print(f"ncDCG: {ncdcg_dict}")
 print(f"cDCG: {cdcg_dict}")
 print(f"cP: {cp_dict}")
 print(f"cAR: {car_dict}")
 
 wandb.finish()
 
-torch.save(model.state_dict(), f"./escm2_plus_ips_{dataset_name[:3]}_seed{random_seed}.pth")
+torch.save(model.state_dict(), f"./v2_plus_naive_{dataset_name[:3]}_seed{random_seed}.pth")
 
 # %%

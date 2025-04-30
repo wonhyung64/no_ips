@@ -191,6 +191,40 @@ class SharedNCFPlus(nn.Module):
         return y1, y0, ctr
 
 
+class SharedLinearCFPlus(nn.Module):
+    """The neural collaborative filtering method.
+    """
+    def __init__(self, num_users, num_items, embedding_k):
+        super(SharedLinearCFPlus, self).__init__()
+        self.num_users = num_users
+        self.num_items = num_items
+        self.embedding_k = embedding_k
+        self.user_embedding = nn.Embedding(self.num_users, self.embedding_k)
+        self.item_embedding = nn.Embedding(self.num_items, self.embedding_k)
+        self.ctr = nn.Sequential(
+            nn.Linear(self.embedding_k*2, self.embedding_k),
+            nn.ReLU(),
+            nn.Linear(self.embedding_k, 1, bias=False),
+        )
+        self.y1 = nn.Sequential(
+            nn.Linear(self.embedding_k*2, 1, bias=False),
+        )
+        self.y0 = nn.Sequential(
+            nn.Linear(self.embedding_k*2, 1, bias=False),
+        )
+
+    def forward(self, x):
+        user_idx = x[:,0]
+        item_idx = x[:,1]
+        user_embed = self.user_embedding(user_idx)
+        item_embed = self.item_embedding(item_idx)
+        z_embed = torch.cat([user_embed, item_embed], axis=1)
+        ctr = self.ctr(z_embed)
+        y1 = self.y1(z_embed)
+        y0 = self.y0(z_embed)
+        return y1, y0, ctr
+
+
 class NCF_AKBIPS_ExpPlus(nn.Module):
     def __init__(self, num_users, num_items, embedding_k=4, *args, **kwargs):
         super().__init__()

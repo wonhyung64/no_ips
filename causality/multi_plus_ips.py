@@ -9,7 +9,7 @@ import torch.nn as nn
 import scipy.sparse as sps
 from datetime import datetime
 
-from module.model import SharedNCFPlus
+from module.model import SharedNCFPlus, SharedLinearCFPlus
 from module.metric import cdcg_func, car_func, cp_func, ncdcg_func
 from module.dataset import load_data, generate_total_sample
 from module.utils import set_device, set_seed
@@ -23,14 +23,6 @@ except:
 
 parser = argparse.ArgumentParser()
 
-
-"""original""" #end
-# parser.add_argument("--dataset-name", type=str, default="original")#[original, personalized]
-# parser.add_argument("--lr", type=float, default=1e-4)
-# parser.add_argument("--weight-decay", type=float, default=1e-4)
-# parser.add_argument("--alpha", type=float, default=0.001)
-
-# """personalized""" # end
 parser.add_argument("--dataset-name", type=str, default="personalized")#[original, personalized]
 parser.add_argument("--lr", type=float, default=1e-4)
 parser.add_argument("--weight-decay", type=float, default=1e-4)
@@ -44,6 +36,9 @@ parser.add_argument("--evaluate-interval", type=int, default=50)
 parser.add_argument("--top-k-list", type=list, default=[10, 30, 100, 1372])
 parser.add_argument("--data-dir", type=str, default="./data")
 parser.add_argument("--propensity", type=str, default="pred")#[pred,true]
+parser.add_argument("--base-model", type=str, default="ncf")#[ncf, linearcf]
+parser.add_argument("--device", type=str, default="none")
+
 
 try:
     args = parser.parse_args()
@@ -63,10 +58,13 @@ data_dir = args.data_dir
 dataset_name = args.dataset_name
 propensity = args.propensity
 alpha = args.alpha
+base_model = args.base_model
+device = args.device
+
 
 expt_num = f'{datetime.now().strftime("%y%m%d_%H%M%S_%f")}'
 set_seed(random_seed)
-device = set_device()
+device = set_device(device)
 
 
 configs = vars(args)
@@ -107,8 +105,11 @@ total_batch = num_samples // batch_size
 
 x_test_tensor = torch.LongTensor(x_test).to(device)
 
-# conditional outcome modeling
-model = SharedNCFPlus(num_users, num_items, embedding_k)
+if base_model == "ncf":
+    model = SharedNCFPlus(num_users, num_items, embedding_k)
+elif base_model == "linearcf":
+    model = SharedLinearCFPlus(num_users, num_items, embedding_k)
+
 model = model.to(device)
 optimizer = torch.optim.Adam(model.parameters(), lr=lr, weight_decay=weight_decay)
 
@@ -193,11 +194,6 @@ for epoch in range(1, num_epochs+1):
         pred_y0 = nn.Sigmoid()(pred_y0).detach().cpu().numpy()
         pred = (pred_y1 - pred_y0).squeeze()
 
-        ncdcg_res = ncdcg_func(pred, x_test, cate_test, top_k_list)
-        ncdcg_dict: dict = {}
-        for top_k in top_k_list:
-            ncdcg_dict[f"ncdcg_{top_k}"] = np.mean(ncdcg_res[f"ncdcg_{top_k}"])
-
         cdcg_res = cdcg_func(pred, x_test, cate_test, top_k_list)
         cdcg_dict: dict = {}
         for top_k in top_k_list:
@@ -220,33 +216,12 @@ for epoch in range(1, num_epochs+1):
         wandb_var.log(cp_dict)
         wandb_var.log(car_dict)
 
-print(f"ncDCG: {ncdcg_dict}")
 print(f"cDCG: {cdcg_dict}")
 print(f"cP: {cp_dict}")
 print(f"cAR: {car_dict}")
 
-cdcg_res = cdcg_func(cate_test, x_test, cate_test, top_k_list)
-cdcg_dict: dict = {}
-for top_k in top_k_list:
-    cdcg_dict[f"true_cdcg_{top_k}"] = np.mean(cdcg_res[f"cdcg_{top_k}"])
-
-cp_res = cp_func(cate_test, x_test, cate_test, top_k_list)
-cp_dict: dict = {}
-for top_k in top_k_list:
-    cp_dict[f"true_cp_{top_k}"] = np.mean(cp_res[f"cp_{top_k}"])
-
-car_res = car_func(cate_test, x_test, cate_test, top_k_list)
-car_dict: dict = {}
-for top_k in top_k_list:
-    car_dict[f"true_car_{top_k}"] = np.mean(car_res[f"car_{top_k}"])
-
-
-wandb_var.log(cdcg_dict)
-wandb_var.log(cp_dict)
-wandb_var.log(car_dict)
-
 wandb.finish()
 
-torch.save(model.state_dict(), f"./multi_ips_plus_{dataset_name[:3]}_seed{random_seed}.pth")
+torch.save(model.state_dict(), f"./multi_plus_ips_{dataset_name[:3]}_seed{random_seed}.pth")
 
 # %%
