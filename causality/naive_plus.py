@@ -201,5 +201,6 @@ print(f"cAR: {car_dict}")
 
 wandb.finish()
 
-torch.save(model.state_dict(), f"./weights/naive_plus_{dataset_name[:3]}_{random_seed}.pth")
+os.makedirs(f"./{base_model}_causality_weights", exist_ok=True)
+torch.save(model.state_dict(), f"./{base_model}_causality_weights/naive_plus_{dataset_name[:3]}_{random_seed}.pth")
 # %%

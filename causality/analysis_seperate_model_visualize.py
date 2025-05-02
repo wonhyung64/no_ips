@@ -17,8 +17,8 @@ def logit(x):
 #%%
 parser = argparse.ArgumentParser()
 
-# parser.add_argument("--dataset-name", type=str, default="original")#[original, personalized]
-parser.add_argument("--dataset-name", type=str, default="personalized")#[original, personalized]
+parser.add_argument("--dataset-name", type=str, default="original")#[original, personalized]
+# parser.add_argument("--dataset-name", type=str, default="personalized")#[original, personalized]
 parser.add_argument("--batch-size", type=int, default=4096)
 parser.add_argument("--embedding-k", type=int, default=64)
 parser.add_argument("--num-epochs", type=int, default=1000)
@@ -215,7 +215,7 @@ legend.get_frame().set_edgecolor('black')
 plt.tight_layout()
 plt.show()
 
-fig.savefig("./original_seperate_mse.pdf", bbox_inches='tight')
+fig.savefig(f"./{dataset_name}_seperate_mse.pdf", bbox_inches='tight')
 #%%
 np.random.seed(random_seed)
 sample_idx = np.random.choice(multi_data_arr.shape[1], 500)

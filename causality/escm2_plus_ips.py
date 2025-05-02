@@ -10,7 +10,7 @@ import scipy.sparse as sps
 from datetime import datetime
 
 from module.model import SharedNCFPlus, SharedLinearCFPlus
-from module.metric import cdcg_func, car_func, cp_func, ncdcg_func
+from module.metric import cdcg_func, car_func, cp_func
 from module.dataset import load_data, generate_total_sample
 from module.utils import set_device, set_seed
 
@@ -235,6 +235,7 @@ print(f"cAR: {car_dict}")
 
 wandb.finish()
 
-torch.save(model.state_dict(), f"./escm2_plus_ips_{dataset_name[:3]}_seed{random_seed}.pth")
+os.makedirs(f"./{base_model}_causality_weights", exist_ok=True)
+torch.save(model.state_dict(), f"./{base_model}_causality_weights/escm2_plus_ips_{dataset_name[:3]}_seed{random_seed}.pth")
 
 # %%

@@ -44,7 +44,7 @@ parser.add_argument("--num-w-epo", type=int, default=3)
 parser.add_argument("--num-epochs", type=int, default=1000)
 parser.add_argument("--evaluate-interval", type=int, default=50)
 parser.add_argument("--top-k-list", type=list, default=[1,3,5,7,10])
-parser.add_argument("--data-dir", type=str, default="../data")
+parser.add_argument("--data-dir", type=str, default="./data")
 parser.add_argument("--random-seed", type=int, default=0)
 parser.add_argument("--base-model", type=str, default="ncf") # ["ncf","linearcf"]
 parser.add_argument("--device", type=str, default="none")
@@ -317,7 +317,8 @@ print(f"cAR: {car_dict}")
 
 wandb.finish()
 
-torch.save(model.state_dict(), f"./akb_ips_plus_{dataset_name[:3]}_seed{random_seed}.pth")
-torch.save(ps_model.state_dict(), f"./akb_ips_plus_ps_model_{dataset_name[:3]}_seed{random_seed}.pth")
+os.makedirs(f"./{base_model}_causality_weights", exist_ok=True)
+torch.save(model.state_dict(), f"./{base_model}_causality_weights/akb_ips_plus_{dataset_name[:3]}_seed{random_seed}.pth")
+torch.save(ps_model.state_dict(), f"./{base_model}_causality_weights/akb_ips_plus_ps_model_{dataset_name[:3]}_seed{random_seed}.pth")
 
 # %%
