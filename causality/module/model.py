@@ -238,3 +238,51 @@ class NCF_AKBIPS_ExpPlus(nn.Module):
         self.weight_model = MF(
             num_users = self.num_users, num_items = self.num_items,embedding_k=self.embedding_k, *args, **kwargs)
         self.epsilon = nn.Parameter(torch.rand(1,4096)) 
+
+    def get_embedding(self,x):
+        user_idx = x[:,0]
+        item_idx = x[:,1]
+        U_emb = self.W(user_idx)
+        V_emb = self.H(item_idx)
+        feature = torch.cat([U_emb ,V_emb ],dim=1)  
+        f_min = torch.min(feature)
+        f_max = torch.max(feature)
+        feature = feature - f_min / (f_max - f_min)                
+        feature = feature/feature.shape[1]
+        return feature
+
+    def exp_kernel(self,X,Y,gamma = 0.1):
+        Euclidean_distances = abs(torch.cdist(Y,X))
+        return torch.exp(-Euclidean_distances * gamma)
+
+
+class LinearCF_AKBIPS_ExpPlus(nn.Module):
+    def __init__(self, num_users, num_items, embedding_k=4, *args, **kwargs):
+        super().__init__()
+        self.num_users = num_users
+        self.num_items = num_items
+        self.embedding_k = embedding_k
+        self.W = nn.Embedding(self.num_users, self.embedding_k)
+        self.H = nn.Embedding(self.num_items, self.embedding_k)
+        self.prediction_model = LinearCFPlus(
+            num_users = self.num_users, num_items = self.num_items,embedding_k=self.embedding_k, *args, **kwargs)
+        self.weight_model = MF(
+            num_users = self.num_users, num_items = self.num_items,embedding_k=self.embedding_k, *args, **kwargs)
+        self.epsilon = nn.Parameter(torch.rand(1,4096)) 
+
+    def get_embedding(self,x):
+        user_idx = x[:,0]
+        item_idx = x[:,1]
+        U_emb = self.W(user_idx)
+        V_emb = self.H(item_idx)
+        feature = torch.cat([U_emb ,V_emb ],dim=1)  
+        f_min = torch.min(feature)
+        f_max = torch.max(feature)
+        feature = feature - f_min / (f_max - f_min)                
+        feature = feature/feature.shape[1]
+        return feature
+
+    def exp_kernel(self,X,Y,gamma = 0.1):
+        Euclidean_distances = abs(torch.cdist(Y,X))
+        return torch.exp(-Euclidean_distances * gamma)
+
