@@ -43,7 +43,7 @@ parser.add_argument("--C", type=float, default=1e-5)
 parser.add_argument("--num-w-epo", type=int, default=3)
 parser.add_argument("--num-epochs", type=int, default=1000)
 parser.add_argument("--evaluate-interval", type=int, default=50)
-parser.add_argument("--top-k-list", type=list, default=[1,3,5,7,10])
+parser.add_argument("--top-k-list", type=list, default=[10, 30, 100, 1372])
 parser.add_argument("--data-dir", type=str, default="./data")
 parser.add_argument("--random-seed", type=int, default=0)
 parser.add_argument("--base-model", type=str, default="ncf") # ["ncf","linearcf"]
