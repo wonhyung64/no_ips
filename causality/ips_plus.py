@@ -255,4 +255,4 @@ wandb.finish()
 
 os.makedirs(f"./{base_model}_causality_weights", exist_ok=True)
 torch.save(model.state_dict(), f"./{base_model}_causality_weights/ips_plus_{dataset_name[:3]}_{random_seed}.pth")
-torch.save(model.state_dict(), f"./{base_model}_causality_weights/ips_plus_ps_model_{dataset_name[:3]}_{random_seed}.pth")
+torch.save(ps_model.state_dict(), f"./{base_model}_causality_weights/ips_plus_ps_model_{dataset_name[:3]}_{random_seed}.pth")
