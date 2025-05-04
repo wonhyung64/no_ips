@@ -56,7 +56,6 @@ evaluate_interval = args.evaluate_interval
 top_k_list = args.top_k_list
 data_dir = args.data_dir
 dataset_name = args.dataset_name
-propensity = args.propensity
 alpha = args.alpha
 beta = args.beta
 zeta = args.zeta
