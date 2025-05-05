@@ -11,11 +11,10 @@ from datetime import datetime
 from sklearn.metrics import roc_auc_score, accuracy_score, f1_score
 from sklearn.model_selection import KFold
 
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
 from module.model import SharedNCFPlus
 from module.dataset import load_data, generate_total_sample
 from module.utils import set_device, set_seed, sigmoid
+from module.metric import cdcg_func
 
 try:
     import wandb
@@ -40,6 +39,7 @@ parser.add_argument("--top-k-list", type=list, default=[1,3,5,7,10,100])
 parser.add_argument("--data-dir", type=str, default="./data")
 parser.add_argument("--propensity", type=str, default="true")#[pred,true]
 parser.add_argument("--alpha", type=float, default=1.) # [2., 1., 0.1, 0.01, 0.001]
+parser.add_argument("--device", type=str, default="none")
 
 try:
     args = parser.parse_args()
@@ -59,15 +59,17 @@ dataset_name = args.dataset_name
 loss_type = args.loss_type
 propensity = args.propensity
 alpha = args.alpha
+device = args.device
 
 expt_num = f'{datetime.now().strftime("%y%m%d_%H%M%S_%f")}'
 set_seed(random_seed)
-device = set_device()
+device = set_device(device)
 
 
 #%%
 x_train, x_test = load_data(data_dir, dataset_name)
 x_train_cv, y_train_cv, t_train_cv, ps_train_cv = x_train[:,:2].astype(int), x_train[:,2:3], x_train[:,3:4], x_train[:,4:]
+_, cate_test = x_test[:,:2].astype(int), x_test[:,2]
 
 num_users = int(x_train_cv[:,0].max())+1
 num_items = int(x_train[:,1].max())+1
@@ -76,8 +78,8 @@ print(f"# user: {num_users}, # item: {num_items}")
 kf = KFold(n_splits=4, shuffle=True, random_state=random_seed)
 for cv_num, (train_idx, test_idx) in enumerate(kf.split(x_train)):
 
-    if (alpha == 0.01) & (cv_num < 2):
-        continue
+    # if (alpha == 0.01) & (cv_num < 2):
+    #     continue
     
     configs = vars(args)
     configs["device"] = device
@@ -221,6 +223,16 @@ for cv_num, (train_idx, test_idx) in enumerate(kf.split(x_train)):
             accuracy_y0 = accuracy_score(y0_test.astype(int), np.where(sigmoid(pred_y0) > 0.5, 1, 0).squeeze())
             f1_y0 = f1_score(y0_test.astype(int), np.where(sigmoid(pred_y0) > 0.5, 1, 0).squeeze())
 
+            pred_y1, pred_y0, _ = model(torch.LongTensor(x_all).to(device))
+            pred_y1 = nn.Sigmoid()(pred_y1).detach().cpu().numpy()
+            pred_y0 = nn.Sigmoid()(pred_y0).detach().cpu().numpy()
+            pred = (pred_y1 - pred_y0).squeeze()
+
+            cdcg_res = cdcg_func(pred, x_all, cate_test, [num_items])
+            cdcg_dict: dict = {}
+            for top_k in top_k_list:
+                cdcg_dict[f"cdcg_{num_items}"] = np.mean(cdcg_res[f"cdcg_{num_items}"])
+
             wandb_var.log({
                 "auc_y1": auc_y1,
                 "accuracy_y1": accuracy_y1,
@@ -230,9 +242,11 @@ for cv_num, (train_idx, test_idx) in enumerate(kf.split(x_train)):
                 "f1_y0": f1_y0,
                 })
 
+            wandb_var.log(cdcg_dict)
+
     print(f"AUC_y1: {auc_y1}")
     print(f"AUC_y0: {auc_y0}")
 
     wandb.finish()
 
-torch.save(model.state_dict(), f"./alpha{alpha}_{dataset_name[:3]}_cv{cv_num}.pth")
+    torch.save(model.state_dict(), f"./alpha{alpha}_{loss_type}_{dataset_name[:3]}_cv{cv_num}.pth")
