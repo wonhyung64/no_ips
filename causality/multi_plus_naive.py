@@ -27,7 +27,7 @@ parser.add_argument("--dataset-name", type=str, default="personalized")#[origina
 parser.add_argument("--lr", type=float, default=1e-4)
 parser.add_argument("--weight-decay", type=float, default=1e-4)
 parser.add_argument("--alpha", type=float, default=2.)
-parser.add_argument("--gamma", type=float, default=999.)
+parser.add_argument("--gamma", type=float, default=9999.)
 parser.add_argument("--batch-size", type=int, default=4096)
 parser.add_argument("--embedding-k", type=int, default=64)
 parser.add_argument("--num-epochs", type=int, default=1000)
@@ -213,5 +213,5 @@ print(f"cAR: {car_dict}")
 wandb.finish()
 
 os.makedirs(f"./{base_model}_causality_weights", exist_ok=True)
-torch.save(model.state_dict(), f"./{base_model}_causality_weights/multi_plus_naive_{dataset_name[:3]}_seed{random_seed}.pth")
+torch.save(model.state_dict(), f"./{base_model}_causality_weights/gamma{gamma}_multi_plus_naive_{dataset_name[:3]}_seed{random_seed}.pth")
 # %%
