@@ -171,12 +171,12 @@ class SharedNCFPlus(nn.Module):
         self.y1 = nn.Sequential(
             nn.Linear(self.embedding_k*2, self.embedding_k),
             nn.ReLU(),
-            nn.Linear(self.embedding_k, 1, bias=True),
+            nn.Linear(self.embedding_k, 1, bias=False),
         )
         self.y0 = nn.Sequential(
             nn.Linear(self.embedding_k*2, self.embedding_k),
             nn.ReLU(),
-            nn.Linear(self.embedding_k, 1, bias=True),
+            nn.Linear(self.embedding_k, 1, bias=False),
         )
 
     def forward(self, x):
