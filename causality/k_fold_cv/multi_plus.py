@@ -39,7 +39,7 @@ parser.add_argument("--evaluate-interval", type=int, default=50)
 parser.add_argument("--top-k-list", type=list, default=[1,3,5,7,10,100])
 parser.add_argument("--data-dir", type=str, default="../data")
 parser.add_argument("--alpha", type=float, default=1.) # [2., 1., 0.1, 0.01, 0.001]
-parser.add_argument("--gamma", type=float, default=9999.) # [2.2, 0.85, 0., -0.85, -2.2]
+parser.add_argument("--gamma", type=float, default=9999.)
 parser.add_argument("--propensity", type=str, default="pred")#[pred,true]
 parser.add_argument("--base-model", type=str, default="ncf")#[ncf, linearcf]
 parser.add_argument("--device", type=str, default="none")
@@ -177,8 +177,7 @@ for cv_num, (train_idx, test_idx) in enumerate(kf.split(x_train)):
 
             rec_loss = nn.functional.binary_cross_entropy(
                 nn.Sigmoid()(pred_y1), sub_y, weight=inv_prop, reduction="none")
-            y1_loss = torch.sum(rec_loss * sub_t)/torch.sum(sub_t) * gamma1
-            # y1_loss = torch.mean(rec_loss * sub_t) * gamma1 Wls
+            y1_loss = torch.mean(rec_loss * sub_t) * gamma1
             epoch_y1_loss += y1_loss
 
             ctr_loss = nn.functional.binary_cross_entropy(nn.Sigmoid()(ctr), sub_t) * alpha
@@ -199,8 +198,7 @@ for cv_num, (train_idx, test_idx) in enumerate(kf.split(x_train)):
 
             rec_loss = nn.functional.binary_cross_entropy(
                 nn.Sigmoid()(pred_y0), sub_y, weight=inv_prop, reduction="none")
-            y0_loss = torch.sum(rec_loss * sub_t)/torch.sum(sub_t) * gamma0
-            # y0_loss = torch.mean(rec_loss * sub_t) * gamma0 Wls
+            y0_loss = torch.mean(rec_loss * sub_t) * gamma0
             epoch_y0_loss += y0_loss
 
             total_loss = y1_loss + y0_loss + ctr_loss
