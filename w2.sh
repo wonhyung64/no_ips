@@ -4,6 +4,7 @@
 
 BASE_DIR=/home1/wonhyung64
 
+BASE_DIR=/home1/ok69531
 REPO_DIR=/home1/ok69531
 ENV=python
 

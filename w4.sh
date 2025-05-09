@@ -3,6 +3,7 @@
 ####srun --cpus-per-task=1 -p gpu6 --gres=gpu:a10:1 --pty bash
 
 BASE_DIR=/home1/wonhyung64
+BASE_DIR=/home1/ok69531
 
 REPO_DIR=/home1/ok69531
 ENV=python
