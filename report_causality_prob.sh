@@ -54,8 +54,8 @@ experiments=(
 # "--dataset-name=original --lr1=1e-4 --lamb1=1e-4"
 # "--dataset-name=personalized --lr1=1e-2 --lamb1=1e-4"
 
-"--base-model=linearcf --dataset-name=original --lr1=1e- --lamb1=1e-"
-"--base-model=linearcf --dataset-name=personalized --lr1=1e- --lamb1=1e-"
+"--base-model=linearcf --dataset-name=original --lr1=1e-4 --lamb1=1e-6"
+"--base-model=linearcf --dataset-name=personalized --lr1=1e-4 --lamb1=1e-6"
 )
 EXECUTION_FILE=$BASE_DIR/Github/no_ips/causality/akb_ips_plus.py
 for index in ${!experiments[*]}; do
