@@ -39,7 +39,7 @@ parser.add_argument("--evaluate-interval", type=int, default=50)
 parser.add_argument("--top-k-list", type=list, default=[1,3,5,7,10,100])
 parser.add_argument("--data-dir", type=str, default="../data")
 parser.add_argument("--alpha", type=float, default=1.) # [2., 1., 0.1, 0.01, 0.001]
-parser.add_argument("--gamma", type=float, default=9999.)
+parser.add_argument("--omega", type=float, default=9999.) #[0.05, 0.1, 0.25, 0.5, 0.75, 0.9, 0.95]
 parser.add_argument("--propensity", type=str, default="pred")#[pred,true]
 parser.add_argument("--base-model", type=str, default="ncf")#[ncf, linearcf]
 parser.add_argument("--device", type=str, default="none")
@@ -62,16 +62,16 @@ dataset_name = args.dataset_name
 loss_type = args.loss_type
 propensity = args.propensity
 alpha = args.alpha
-gamma = args.gamma
+omega = args.omega
 base_model = args.base_model
 device = args.device
 
-if gamma < 9999.:
-    gamma1 = 1/sigmoid(gamma)
-    gamma0 = 1/(1-sigmoid(gamma))
+if omega < 9999.:
+    omega1 = 1/omega
+    omega0 = 1/(1-omega)
 else:
-    gamma1 = 1.
-    gamma0 = 1.
+    omega1 = 1.
+    omega0 = 1.
 
 expt_num = f'{datetime.now().strftime("%y%m%d_%H%M%S_%f")}'
 set_seed(random_seed)
@@ -177,7 +177,7 @@ for cv_num, (train_idx, test_idx) in enumerate(kf.split(x_train)):
 
             rec_loss = nn.functional.binary_cross_entropy(
                 nn.Sigmoid()(pred_y1), sub_y, weight=inv_prop, reduction="none")
-            y1_loss = torch.mean(rec_loss * sub_t) * gamma1
+            y1_loss = torch.mean(rec_loss * sub_t) * omega1
             epoch_y1_loss += y1_loss
 
             ctr_loss = nn.functional.binary_cross_entropy(nn.Sigmoid()(ctr), sub_t) * alpha
@@ -198,7 +198,7 @@ for cv_num, (train_idx, test_idx) in enumerate(kf.split(x_train)):
 
             rec_loss = nn.functional.binary_cross_entropy(
                 nn.Sigmoid()(pred_y0), sub_y, weight=inv_prop, reduction="none")
-            y0_loss = torch.mean(rec_loss * sub_t) * gamma0
+            y0_loss = torch.mean(rec_loss * sub_t) * omega0
             epoch_y0_loss += y0_loss
 
             total_loss = y1_loss + y0_loss + ctr_loss
@@ -240,6 +240,7 @@ for cv_num, (train_idx, test_idx) in enumerate(kf.split(x_train)):
                 "auc_y0": auc_y0,
                 "nll_y1": nll_y1,
                 "nll_y0": nll_y0,
+                "nll_y" : nll_y1*0.15267 + nll_y0*(1-0.15267),
                 })
 
     print(f"AUC_y1: {auc_y1}")

@@ -35,7 +35,7 @@ parser.add_argument("--loss-type", type=str, default="naive")#[naive, ips]
 parser.add_argument("--num-epochs", type=int, default=1000)
 parser.add_argument("--random-seed", type=int, default=0)
 parser.add_argument("--evaluate-interval", type=int, default=50)
-parser.add_argument("--top-k-list", type=list, default=[1,3,5,7,10,100])
+parser.add_argument("--top-k-list", type=list, default=[10, 30, 100, 1372])
 parser.add_argument("--data-dir", type=str, default="./data")
 parser.add_argument("--propensity", type=str, default="true")#[pred,true]
 parser.add_argument("--alpha", type=float, default=1.) # [2., 1., 0.1, 0.01, 0.001]
@@ -228,10 +228,15 @@ for cv_num, (train_idx, test_idx) in enumerate(kf.split(x_train)):
             pred_y0 = nn.Sigmoid()(pred_y0).detach().cpu().numpy()
             pred = (pred_y1 - pred_y0).squeeze()
 
-            cdcg_res = cdcg_func(pred, x_all, cate_test, [num_items])
+            cp_res = cp_func(pred, x_all, cate_test, top_k_list)
+            cp_dict: dict = {}
+            for top_k in top_k_list:
+                cp_dict[f"cp_{top_k}"] = np.mean(cp_res[f"cp_{top_k}"])
+
+            cdcg_res = cdcg_func(pred, x_all, cate_test, top_k_list)
             cdcg_dict: dict = {}
             for top_k in top_k_list:
-                cdcg_dict[f"cdcg_{num_items}"] = np.mean(cdcg_res[f"cdcg_{num_items}"])
+                cdcg_dict[f"cdcg_{top_k}"] = np.mean(cdcg_res[f"cdcg_{top_k}"])
 
             wandb_var.log({
                 "auc_y1": auc_y1,
@@ -243,10 +248,11 @@ for cv_num, (train_idx, test_idx) in enumerate(kf.split(x_train)):
                 })
 
             wandb_var.log(cdcg_dict)
+            wandb_var.log(cp_dict)
 
     print(f"AUC_y1: {auc_y1}")
     print(f"AUC_y0: {auc_y0}")
 
     wandb.finish()
 
-    torch.save(model.state_dict(), f"./alpha{alpha}_{loss_type}_{dataset_name[:3]}_cv{cv_num}.pth")
+    torch.save(model.state_dict(), f"./sensitivity_alpha{alpha}_{loss_type}_{dataset_name[:3]}_cv{cv_num}.pth")
