@@ -38,6 +38,7 @@ parser.add_argument("--data-dir", type=str, default="./data")
 parser.add_argument("--propensity", type=str, default="pred")#[pred,true]
 parser.add_argument("--base-model", type=str, default="ncf")#[ncf, linearcf]
 parser.add_argument("--device", type=str, default="none")
+parser.add_argument("--omega", type=float, default=9999.) #[0.05, 0.1, 0.25, 0.5, 0.75, 0.9, 0.95]
 
 
 try:
@@ -60,6 +61,16 @@ propensity = args.propensity
 alpha = args.alpha
 base_model = args.base_model
 device = args.device
+
+omega = args.omega
+
+if omega < 9999.:
+    omega1 = 1/omega
+    omega0 = 1/(1-omega)
+else:
+    omega1 = 1.
+    omega0 = 1.
+
 
 
 expt_num = f'{datetime.now().strftime("%y%m%d_%H%M%S_%f")}'
@@ -145,7 +156,7 @@ for epoch in range(1, num_epochs+1):
 
         rec_loss = nn.functional.binary_cross_entropy(
             nn.Sigmoid()(pred_y1), sub_y, weight=inv_prop, reduction="none")
-        y1_loss = torch.mean(rec_loss * sub_t)
+        y1_loss = torch.mean(rec_loss * sub_t) * omega1
         epoch_y1_loss += y1_loss
 
         ctr_loss = nn.functional.binary_cross_entropy(nn.Sigmoid()(ctr), sub_t) * alpha
@@ -165,7 +176,7 @@ for epoch in range(1, num_epochs+1):
 
         rec_loss = nn.functional.binary_cross_entropy(
             nn.Sigmoid()(pred_y0), sub_y, weight=inv_prop, reduction="none")
-        y0_loss = torch.mean(rec_loss * sub_t)
+        y0_loss = torch.mean(rec_loss * sub_t) * omega0
         epoch_y0_loss += y0_loss
 
         total_loss = y1_loss + y0_loss + ctr_loss
@@ -223,6 +234,6 @@ print(f"cAR: {car_dict}")
 wandb.finish()
 
 os.makedirs(f"./{base_model}_causality_weights", exist_ok=True)
-torch.save(model.state_dict(), f"./{base_model}_causality_weights/multi_plus_ips_{dataset_name[:3]}_seed{random_seed}.pth")
+torch.save(model.state_dict(), f"./{base_model}_causality_weights/multi_plus_ips_{dataset_name[:3]}_omega{omega}_seed{random_seed}.pth")
 
 # %%
