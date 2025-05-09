@@ -117,4 +117,3 @@ for index in ${!experiments[*]}; do
     wandb login a1f59c7a0e53eed9b11d25edae53fdbe676fb53a
     $ENV $EXECUTION_FILE ${experiments[$index]} --data-dir=$DATA_DIR --random-seed=$RANDOM_SEED
 done
-
