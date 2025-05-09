@@ -73,13 +73,13 @@ done
 
 experiments=(
 
-    "--dataset-name=original --lr=1e-2 --weight-decay=1e-4 --alpha=0.01 --beta=2. --propensity=pred --loss-type=ips --omega=0.05"
-    "--dataset-name=original --lr=1e-2 --weight-decay=1e-4 --alpha=0.01 --beta=2. --propensity=pred --loss-type=ips --omega=0.1"
-    "--dataset-name=original --lr=1e-2 --weight-decay=1e-4 --alpha=0.01 --beta=2. --propensity=pred --loss-type=ips --omega=0.25"
+    # "--dataset-name=original --lr=1e-2 --weight-decay=1e-4 --alpha=0.01 --beta=2. --propensity=pred --loss-type=ips --omega=0.05"
+    # "--dataset-name=original --lr=1e-2 --weight-decay=1e-4 --alpha=0.01 --beta=2. --propensity=pred --loss-type=ips --omega=0.1"
+    # "--dataset-name=original --lr=1e-2 --weight-decay=1e-4 --alpha=0.01 --beta=2. --propensity=pred --loss-type=ips --omega=0.25"
 
-    # "--dataset-name=original --lr=1e-2 --weight-decay=1e-4 --alpha=0.01 --beta=2. --propensity=pred --loss-type=ips --omega=0.75"
-    # "--dataset-name=original --lr=1e-2 --weight-decay=1e-4 --alpha=0.01 --beta=2. --propensity=pred --loss-type=ips --omega=0.9"
-    # "--dataset-name=original --lr=1e-2 --weight-decay=1e-4 --alpha=0.01 --beta=2. --propensity=pred --loss-type=ips --omega=0.95"
+    "--dataset-name=original --lr=1e-2 --weight-decay=1e-4 --alpha=0.01 --beta=2. --propensity=pred --loss-type=ips --omega=0.75"
+    "--dataset-name=original --lr=1e-2 --weight-decay=1e-4 --alpha=0.01 --beta=2. --propensity=pred --loss-type=ips --omega=0.9"
+    "--dataset-name=original --lr=1e-2 --weight-decay=1e-4 --alpha=0.01 --beta=2. --propensity=pred --loss-type=ips --omega=0.95"
 
     # "--dataset-name=original --lr=1e-4 --weight-decay=1e-4 --alpha=2. --beta=2. --loss-type=naive --omega=0.05"
     # "--dataset-name=original --lr=1e-4 --weight-decay=1e-4 --alpha=2. --beta=2. --loss-type=naive --omega=0.1"

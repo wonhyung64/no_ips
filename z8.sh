@@ -143,13 +143,13 @@ done
 
 experiments=(
 
-    "--dataset-name=original --lr1=1e-4 --lamb1=1e-4 --omega=0.05"
-    "--dataset-name=original --lr1=1e-4 --lamb1=1e-4 --omega=0.1"
-    "--dataset-name=original --lr1=1e-4 --lamb1=1e-4 --omega=0.25"
+    # "--dataset-name=original --lr1=1e-4 --lamb1=1e-4 --omega=0.05"
+    # "--dataset-name=original --lr1=1e-4 --lamb1=1e-4 --omega=0.1"
+    # "--dataset-name=original --lr1=1e-4 --lamb1=1e-4 --omega=0.25"
 
-    # "--dataset-name=original --lr1=1e-4 --lamb1=1e-4 --omega=0.75"
-    # "--dataset-name=original --lr1=1e-4 --lamb1=1e-4 --omega=0.9"
-    # "--dataset-name=original --lr1=1e-4 --lamb1=1e-4 --omega=0.95"
+    "--dataset-name=original --lr1=1e-4 --lamb1=1e-4 --omega=0.75"
+    "--dataset-name=original --lr1=1e-4 --lamb1=1e-4 --omega=0.9"
+    "--dataset-name=original --lr1=1e-4 --lamb1=1e-4 --omega=0.95"
 
 )
 EXECUTION_FILE=$REPO_DIR/no_ips/causality/k_fold_cv/akb_ips_plus.py

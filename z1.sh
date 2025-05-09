@@ -29,12 +29,12 @@ experiments=(
     # "--dataset-name=original --lr=1e-3 --weight-decay=1e-4 --alpha=0.001 --propensity=pred --loss-type=ips --omega=0.95"
 
     # "--dataset-name=original --lr=1e-3 --weight-decay=1e-4 --alpha=1. --loss-type=naive --omega=0.05"
-    "--dataset-name=original --lr=1e-3 --weight-decay=1e-4 --alpha=1. --loss-type=naive --omega=0.1"
-    "--dataset-name=original --lr=1e-3 --weight-decay=1e-4 --alpha=1. --loss-type=naive --omega=0.25"
+    # "--dataset-name=original --lr=1e-3 --weight-decay=1e-4 --alpha=1. --loss-type=naive --omega=0.1"
+    # "--dataset-name=original --lr=1e-3 --weight-decay=1e-4 --alpha=1. --loss-type=naive --omega=0.25"
 
     # "--dataset-name=original --lr=1e-3 --weight-decay=1e-4 --alpha=1. --loss-type=naive --omega=0.75"
-    # "--dataset-name=original --lr=1e-3 --weight-decay=1e-4 --alpha=1. --loss-type=naive --omega=0.9"
-    # "--dataset-name=original --lr=1e-3 --weight-decay=1e-4 --alpha=1. --loss-type=naive --omega=0.95"
+    "--dataset-name=original --lr=1e-3 --weight-decay=1e-4 --alpha=1. --loss-type=naive --omega=0.9"
+    "--dataset-name=original --lr=1e-3 --weight-decay=1e-4 --alpha=1. --loss-type=naive --omega=0.95"
 
 )
 EXECUTION_FILE=$REPO_DIR/no_ips/causality/k_fold_cv/multi_plus.py
@@ -46,12 +46,12 @@ done
 
 experiments=(
 
-    "--dataset-name=original --lr=1e-2 --weight-decay=1e-4 --propensity=pred --loss-type=ips --omega=0.05"
-    "--dataset-name=original --lr=1e-2 --weight-decay=1e-4 --propensity=pred --loss-type=ips --omega=0.1"
+    # "--dataset-name=original --lr=1e-2 --weight-decay=1e-4 --propensity=pred --loss-type=ips --omega=0.05"
+    # "--dataset-name=original --lr=1e-2 --weight-decay=1e-4 --propensity=pred --loss-type=ips --omega=0.1"
     # "--dataset-name=original --lr=1e-2 --weight-decay=1e-4 --propensity=pred --loss-type=ips --omega=0.25"
 
-    # "--dataset-name=original --lr=1e-2 --weight-decay=1e-4 --propensity=pred --loss-type=ips --omega=0.75"
-    # "--dataset-name=original --lr=1e-2 --weight-decay=1e-4 --propensity=pred --loss-type=ips --omega=0.9"
+    "--dataset-name=original --lr=1e-2 --weight-decay=1e-4 --propensity=pred --loss-type=ips --omega=0.75"
+    "--dataset-name=original --lr=1e-2 --weight-decay=1e-4 --propensity=pred --loss-type=ips --omega=0.9"
     # "--dataset-name=original --lr=1e-2 --weight-decay=1e-4 --propensity=pred --loss-type=ips --omega=0.95"
 
     # "--dataset-name=original --lr=1e-2 --weight-decay=1e-5 --loss-type=naive --omega=0.05"
