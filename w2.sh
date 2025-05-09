@@ -12,7 +12,7 @@ ENV=python
 # ENV=$BASE_DIR/anaconda3/envs/openmmlab/bin/python3
 
 # data directory for experiments
-DATA_DIR=$REPO_DIR/Github/no_ips/causality/data
+DATA_DIR=$REPO_DIR/no_ips/causality/data
 
 RANDOM_SEED=0
 
@@ -66,7 +66,7 @@ experiments=(
 
 )
 
-EXECUTION_FILE=$BASE_DIR/Github/no_ips/causality/sensitivity.py
+EXECUTION_FILE=$BASE_DIR/no_ips/causality/sensitivity.py
 for index in ${!experiments[*]}; do
     wandb login a1f59c7a0e53eed9b11d25edae53fdbe676fb53a
     $ENV $EXECUTION_FILE ${experiments[$index]} --data-dir=$DATA_DIR --random-seed=$RANDOM_SEED
