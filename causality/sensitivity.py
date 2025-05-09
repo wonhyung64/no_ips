@@ -14,7 +14,7 @@ from sklearn.model_selection import KFold
 from module.model import SharedNCFPlus
 from module.dataset import load_data, generate_total_sample
 from module.utils import set_device, set_seed, sigmoid
-from module.metric import cdcg_func
+from module.metric import cdcg_func, cp_func
 
 try:
     import wandb
