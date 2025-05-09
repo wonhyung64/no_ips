@@ -11,7 +11,8 @@ ENV=python
 # ENV=$BASE_DIR/anaconda3/envs/openmmlab/bin/python3
 
 # data directory for experiments
-DATA_DIR=$BASE_DIR/Github/no_ips/causality/data
+DATA_DIR=$REPO_DIR/Github/no_ips/causality/data
+/causality/data
 
 RANDOM_SEED=0
 
